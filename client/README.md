@@ -1,73 +1,130 @@
-# React + TypeScript + Vite
+# 客户服务机器人前端项目
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+## 架构概述
 
-Currently, two official plugins are available:
+本项目是一个基于React和TypeScript的客户服务机器人前端应用，主要负责与用户交互、文件上传处理以及与后端API通信。前端应用提供了直观的用户界面，支持文件上传和手动输入文本两种方式创建知识库文档，并实现了基于RAG（检索增强生成）+SSE（服务器发送事件）的流式问答功能。
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+## 文件结构
 
-## React Compiler
-
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```
+client/
+├── public/
+│   └── vite.svg           # 默认Vite图标资源
+├── src/
+│   ├── assets/            # 静态资源目录
+│   ├── App.css           # 应用全局样式
+│   ├── App.tsx           # 主应用组件，实现核心功能
+│   ├── index.css         # 全局CSS重置和基础样式
+│   └── main.tsx          # React应用入口文件
+├── .gitignore            # Git忽略配置
+├── eslint.config.js      # ESLint配置
+├── index.html            # HTML入口文件
+├── package-lock.json     # 依赖版本锁定文件
+├── package.json          # 项目配置和依赖声明
+├── tsconfig.app.json     # TypeScript应用配置
+├── tsconfig.json         # 主TypeScript配置
+├── tsconfig.node.json    # Node.js环境TypeScript配置
+└── vite.config.ts        # Vite构建工具配置
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+## 核心文件作用
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+### App.tsx
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+主应用组件，实现了以下核心功能：
+
+- **知识文档创建**：
+  - 文件上传功能，支持PDF和TXT格式
+  - 手动输入文本创建文档
+  
+- **问答功能**：
+  - 基于RAG技术的智能问答
+  - 使用SSE实现流式响应，提供更流畅的用户体验
+  
+- **UI界面**：
+  - 知识文档创建区域（文件上传和文本输入）
+  - 问答对话区域（用户输入和机器人回复）
+  - 历史消息展示和清空功能
+
+### 主要API调用
+
+前端应用主要与以下后端API进行交互：
+
+1. **POST /api/embed**：提交文本内容到向量数据库
+2. **POST /api/upload**：上传并处理文件（PDF/TXT）
+3. **GET /api/chat/stream**：获取流式AI回答
+
+## 配置与运行
+
+### 环境要求
+
+- Node.js 16.x 或更高版本
+- npm 7.x 或更高版本
+
+### 安装依赖
+
+```bash
+cd client
+npm install
 ```
+
+### 配置
+
+前端应用不需要额外配置，默认连接到 `http://localhost:3001` 的后端服务。如需修改后端服务地址，请在 `App.tsx` 文件中更新API调用的基础URL。
+
+### 开发运行
+
+```bash
+npm run dev
+```
+
+此命令将启动开发服务器，通常在 `http://localhost:5173` 上运行（具体端口可能因配置而异）。
+
+### 构建生产版本
+
+```bash
+npm run build
+```
+
+构建后的文件将位于 `dist` 目录中，可部署到任何静态文件服务器。
+
+### 预览生产构建
+
+```bash
+npm run preview
+```
+
+用于在部署前本地预览生产构建的版本。
+
+## 功能使用说明
+
+### 创建知识库文档
+
+1. **通过文件上传**：
+   - 点击"选择文件"按钮
+   - 选择PDF或TXT格式的文件
+   - 系统将自动处理文件内容并添加到知识库
+
+2. **通过手动输入**：
+   - 在文本输入框中输入文档内容
+   - 点击"提交到知识库"按钮
+   - 系统将处理输入内容并添加到知识库
+
+### 智能问答
+
+1. 在问答区域的输入框中输入问题
+2. 点击"发送"按钮或按Enter键
+3. 系统将通过流式响应实时显示回答
+
+### 清空对话历史
+
+点击"清空对话"按钮可清除当前所有对话历史。
+
+## 错误处理
+
+应用内置了基本的错误处理机制，包括：
+- 文件上传格式验证
+- API请求失败时的错误提示
+- 空输入验证
+
+当操作失败时，会在界面上显示相应的错误消息，指导用户进行正确的操作。
