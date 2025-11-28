@@ -2,6 +2,7 @@ import express from "express";
 import cors from "cors";
 import multer from "multer";
 import fs from "fs";
+import ms from "ms";
 import path from "path";
 import { PORT, CRAWL_INTERVAL_MS } from "./config.js";
 import { splitText } from "./rag.js";
@@ -11,6 +12,7 @@ import { createChatModel } from "./llm.js";
 import { extractTextFromPDF, isPDFFile } from "./utils/pdfParser.js";
 import * as crawler from "./crawler.js";
 
+console.log(`爬虫任务间隔: ${ms(CRAWL_INTERVAL_MS)}`);
 setInterval(async () => {
   console.log(`开始执行爬虫任务，间隔: ${CRAWL_INTERVAL_MS}`);
   await crawler.fetchAllArticles();
