@@ -1,6 +1,6 @@
 import fs from 'fs/promises';
 import Bottleneck from 'bottleneck';
-import { sanitizeWindowsPath } from './utils/pathUtils';
+import { sanitizeWindowsPath } from './utils/pathUtils.js';
 
 const baseURL = 'https://school.jinritemai.com/api/eschool/v2/library';
 const output = 'articles';

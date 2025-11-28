@@ -1,5 +1,5 @@
 import { ZhipuAIEmbeddings } from "@langchain/community/embeddings/zhipuai";
-import { ZHIPU_API_KEY, EMBEDDING_MODEL } from "../config";
+import { ZHIPU_API_KEY, EMBEDDING_MODEL } from "../config.js";
 
 /**
  * 封装 LangChain 的 ZhipuAIEmbeddings，提供统一的接口

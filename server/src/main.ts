@@ -3,13 +3,13 @@ import cors from "cors";
 import multer from "multer";
 import fs from "fs";
 import path from "path";
-import { PORT, CRAWL_INTERVAL_MS } from "./config";
-import { splitText } from "./rag";
-import { upsertDocuments } from "./vectorStore";
-import { buildContext } from "./rag";
-import { createChatModel } from "./llm";
-import { extractTextFromPDF, isPDFFile } from "./utils/pdfParser";
-import * as crawler from "./crawler";
+import { PORT, CRAWL_INTERVAL_MS } from "./config.js";
+import { splitText } from "./rag.js";
+import { upsertDocuments } from "./vectorStore.js";
+import { buildContext } from "./rag.js";
+import { createChatModel } from "./llm.js";
+import { extractTextFromPDF, isPDFFile } from "./utils/pdfParser.js";
+import * as crawler from "./crawler.js";
 
 setInterval(async () => {
   console.log(`开始执行爬虫任务，间隔: ${CRAWL_INTERVAL_MS}`);

@@ -1,7 +1,7 @@
 import { QdrantClient } from "@qdrant/js-client-rest";
-import { QDRANT_URL, QDRANT_COLLECTION } from "./config";
-import { ZhipuEmbedding } from "./embedding/zhipuEmbedding";
 import { randomUUID } from "crypto";
+import { QDRANT_URL, QDRANT_COLLECTION } from "./config.js";
+import { ZhipuEmbedding } from "./embedding/zhipuEmbedding.js";
 
 export const qdrantClient = new QdrantClient({
   url: QDRANT_URL,

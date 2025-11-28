@@ -1,5 +1,5 @@
 import { RecursiveCharacterTextSplitter } from "@langchain/textsplitters";
-import { retrieveRelevantChunks } from "./vectorStore";
+import { retrieveRelevantChunks } from "./vectorStore.js";
 
 export const splitter = new RecursiveCharacterTextSplitter({
   chunkSize: 500,

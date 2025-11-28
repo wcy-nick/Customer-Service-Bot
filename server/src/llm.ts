@@ -1,5 +1,5 @@
 import { ChatZhipuAI } from "@langchain/community/chat_models/zhipuai";
-import { ZHIPU_API_KEY } from "./config";
+import { ZHIPU_API_KEY } from "./config.js";
 
 export function createChatModel() {
   if (!ZHIPU_API_KEY) {
