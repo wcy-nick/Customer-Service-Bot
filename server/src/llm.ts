@@ -1,12 +1,12 @@
 import { ChatZhipuAI } from "@langchain/community/chat_models/zhipuai";
-import { ZHIPU_API_KEY } from "./config.js";
+import config from "./config.js";
 
 export function createChatModel() {
-  if (!ZHIPU_API_KEY) {
+  if (!config.zhipuApiKey) {
     throw new Error("ZHIPU_API_KEY is not set");
   }
   return new ChatZhipuAI({
-    apiKey: ZHIPU_API_KEY,
+    apiKey: config.zhipuApiKey,
     model: "glm-4",
   });
 }

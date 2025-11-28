@@ -1,5 +1,5 @@
 import { ZhipuAIEmbeddings } from "@langchain/community/embeddings/zhipuai";
-import { ZHIPU_API_KEY, EMBEDDING_MODEL } from "../config.js";
+import config from "../config.js";
 
 /**
  * 封装 LangChain 的 ZhipuAIEmbeddings，提供统一的接口
@@ -8,8 +8,8 @@ export class ZhipuEmbedding {
   private embeddings: ZhipuAIEmbeddings;
 
   constructor(options?: { apiKey?: string; model?: string }) {
-    const apiKey = options?.apiKey || ZHIPU_API_KEY;
-    const model = options?.model || EMBEDDING_MODEL;
+    const apiKey = options?.apiKey || config.zhipuApiKey;
+    const model = options?.model || config.embeddingModel;
 
     if (!apiKey) {
       throw new Error("ZHIPU_API_KEY is not set");

@@ -1,6 +1,6 @@
 import { QdrantClient } from "@qdrant/js-client-rest";
 import { randomUUID } from "crypto";
-import { QDRANT_COLLECTION } from "./config.js";
+import config from "./config.js";
 import { ZhipuEmbedding } from "./embedding/zhipuEmbedding.js";
 
 export const qdrantClient = new QdrantClient({
@@ -13,12 +13,12 @@ export const qdrantClient = new QdrantClient({
 const embedding = new ZhipuEmbedding();
 
 export async function ensureCollection() {
-  const exists = await qdrantClient.getCollection(QDRANT_COLLECTION).then(
+  const exists = await qdrantClient.getCollection(config.qdrantCollection).then(
     () => true,
     () => false
   );
   if (!exists) {
-    await qdrantClient.createCollection(QDRANT_COLLECTION, {
+    await qdrantClient.createCollection(config.qdrantCollection, {
       vectors: {
         size: 1024,
         distance: "Cosine",
