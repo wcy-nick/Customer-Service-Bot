@@ -1,10 +1,13 @@
 import { QdrantClient } from "@qdrant/js-client-rest";
 import { randomUUID } from "crypto";
-import { QDRANT_URL, QDRANT_COLLECTION } from "./config.js";
+import { QDRANT_COLLECTION } from "./config.js";
 import { ZhipuEmbedding } from "./embedding/zhipuEmbedding.js";
 
 export const qdrantClient = new QdrantClient({
-  url: QDRANT_URL,
+  url: process.env.QDRANT_URL,
+  host: process.env.QDRANT_HOST,
+  port: Number(process.env.QDRANT_PORT),
+  apiKey: process.env.QDRANT_API_KEY,
 });
 
 const embedding = new ZhipuEmbedding();

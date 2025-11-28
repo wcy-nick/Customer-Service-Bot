@@ -11,5 +11,4 @@ export const PORT = Number(process.env.PORT || 3001);
 
 export const CRAWL_INTERVAL_MS: number = ms(process.env.CRAWL_INTERVAL as ms.StringValue || "5m");
 
-export const QDRANT_URL = process.env.QDRANT_URL || "http://localhost:6333";
 export const QDRANT_COLLECTION = process.env.QDRANT_COLLECTION || "documents";
