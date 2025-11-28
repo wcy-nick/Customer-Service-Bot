@@ -3,12 +3,19 @@ import cors from "cors";
 import multer from "multer";
 import fs from "fs";
 import path from "path";
-import { PORT } from "./config";
+import { PORT, CRAWL_INTERVAL_MS } from "./config";
 import { splitText } from "./rag";
 import { upsertDocuments } from "./vectorStore";
 import { buildContext } from "./rag";
 import { createChatModel } from "./llm";
 import { extractTextFromPDF, isPDFFile } from "./utils/pdfParser";
+import * as crawler from "./crawler";
+
+setInterval(async () => {
+  console.log(`开始执行爬虫任务，间隔: ${CRAWL_INTERVAL_MS}`);
+  await crawler.fetchAllArticles();
+  console.log("爬虫任务执行完成");
+}, CRAWL_INTERVAL_MS);
 
 const app = express();
 app.use(cors());
@@ -155,7 +162,3 @@ app.get("/api/chat/stream", async (req, res) => {
 app.listen(PORT, () => {
   console.log(`Server listening on http://localhost:${PORT}`);
 });
-
-
-
-
