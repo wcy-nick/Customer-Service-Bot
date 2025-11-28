@@ -4,7 +4,7 @@ import multer from "multer";
 import fs from "fs";
 import ms from "ms";
 import path from "path";
-import { PORT, CRAWL_INTERVAL_MS } from "./config.js";
+import config from "./config.js";
 import { splitText } from "./rag.js";
 import { upsertDocuments } from "./vectorStore.js";
 import { buildContext } from "./rag.js";
@@ -12,12 +12,12 @@ import { createChatModel } from "./llm.js";
 import { extractTextFromPDF, isPDFFile } from "./utils/pdfParser.js";
 import * as crawler from "./crawler.js";
 
-console.log(`爬虫任务间隔: ${ms(CRAWL_INTERVAL_MS)}`);
+console.log(`爬虫任务间隔: ${ms(config.crawlIntervalMs)}`);
 setInterval(async () => {
-  console.log(`开始执行爬虫任务，间隔: ${CRAWL_INTERVAL_MS}`);
+  console.log(`开始执行爬虫任务，间隔: ${ms(config.crawlIntervalMs)}`);
   await crawler.fetchAllArticles();
   console.log("爬虫任务执行完成");
-}, CRAWL_INTERVAL_MS);
+}, config.crawlIntervalMs);
 
 const app = express();
 app.use(cors());
@@ -154,6 +154,6 @@ app.get("/api/chat", async (req, res) => {
   }
 });
 
-app.listen(PORT, () =>
-  console.log(`Server listening on http://localhost:${PORT}`)
+app.listen(config.port, () =>
+  console.log(`Server listening on http://localhost:${config.port}`)
 );
