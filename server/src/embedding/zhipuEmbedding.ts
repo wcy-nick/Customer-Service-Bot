@@ -18,7 +18,10 @@ export class ZhipuEmbedding {
     // 检查 API Key 格式
     // 智谱 AI 的 API Key 通常是 "xxx.yyy" 格式（包含点号）
     // 或者可能是 "zhipu-xxx" 格式
-    console.log("Initializing ZhipuAIEmbeddings with API Key:", apiKey.substring(0, 10) + "..." + apiKey.substring(apiKey.length - 5));
+    console.log(
+      "Initializing ZhipuAIEmbeddings with API Key:",
+      apiKey.substring(0, 10) + "..." + apiKey.substring(apiKey.length - 5)
+    );
     console.log("Model:", model);
 
     // 使用 LangChain 官方的 ZhipuAIEmbeddings
@@ -46,10 +49,15 @@ export class ZhipuEmbedding {
 
   async embed(texts: string[]): Promise<number[][]> {
     try {
-      console.log(`Embedding ${texts.length} text(s), first text preview:`, texts[0]?.substring(0, 50) + "...");
+      console.log(
+        `Embedding ${texts.length} text(s), first text preview:`,
+        texts[0]?.substring(0, 50) + "..."
+      );
       // LangChain 的 embedDocuments 方法返回 Promise<number[][]>
       const embeddings = await this.embeddings.embedDocuments(texts);
-      console.log(`Successfully embedded ${embeddings.length} text(s), embedding dimension: ${embeddings[0]?.length}`);
+      console.log(
+        `Successfully embedded ${embeddings.length} text(s), embedding dimension: ${embeddings[0]?.length}`
+      );
       return embeddings;
     } catch (error: any) {
       console.error("Zhipu embedding error details:", {
@@ -58,7 +66,7 @@ export class ZhipuEmbedding {
         response: error.response?.data || error.response || "No response data",
         status: error.status || error.response?.status,
       });
-      
+
       // 提供更详细的错误信息
       let errorMessage = `Zhipu embedding failed: ${error.message}`;
       if (error.response?.data) {
@@ -70,7 +78,10 @@ export class ZhipuEmbedding {
 
   async embedOne(text: string): Promise<number[]> {
     try {
-      console.log("Embedding single text, preview:", text.substring(0, 50) + "...");
+      console.log(
+        "Embedding single text, preview:",
+        text.substring(0, 50) + "..."
+      );
       // LangChain 的 embedQuery 方法返回 Promise<number[]>
       const embedding = await this.embeddings.embedQuery(text);
       console.log(`Successfully embedded text, dimension: ${embedding.length}`);
@@ -82,7 +93,7 @@ export class ZhipuEmbedding {
         response: error.response?.data || error.response || "No response data",
         status: error.status || error.response?.status,
       });
-      
+
       // 提供更详细的错误信息
       let errorMessage = `Zhipu embedding failed: ${error.message}`;
       if (error.response?.data) {
@@ -92,7 +103,3 @@ export class ZhipuEmbedding {
     }
   }
 }
-
-
-
-

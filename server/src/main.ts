@@ -33,7 +33,12 @@ const storage = multer.diskStorage({
     cb(null, uploadDir);
   },
   filename: function (_req, file, cb) {
-    cb(null, Date.now() + "-" + Buffer.from(file.originalname, "latin1").toString("utf8"));
+    cb(
+      null,
+      Date.now() +
+        "-" +
+        Buffer.from(file.originalname, "latin1").toString("utf8")
+    );
   },
 });
 
@@ -87,19 +92,14 @@ app.post("/api/upload", upload.single("file"), async (req, res) => {
 
 // 接收原始文本，分割 + embedding + 写入向量库
 app.post("/api/embed", async (req, res) => {
-  try {
-    let { text } = req.body as { text?: string };
-    text = text?.trim() || "";
-    if (!text) {
-      return res.status(400).json({ error: "text is required" });
-    }
-    const chunks = await splitText(text);
-    await upsertDocuments(chunks);
-    return res.json({ ok: true, chunks: chunks.length });
-  } catch (e: any) {
-    console.error(e);
-    return res.status(500).json({ error: e.message || "internal error" });
+  let { text } = req.body as { text?: string };
+  text = text?.trim() || "";
+  if (!text) {
+    return res.status(400).json({ error: "text is required" });
   }
+  const chunks = await splitText(text);
+  await upsertDocuments(chunks);
+  return res.json({ ok: true, chunks: chunks.length });
 });
 
 // SSE 流式 RAG 问答
@@ -113,7 +113,9 @@ app.get("/api/chat", async (req, res) => {
         Connection: "keep-alive",
         "Cache-Control": "no-cache",
       });
-      res.write(`data: ${JSON.stringify({ error: "question is required" })}\n\n`);
+      res.write(
+        `data: ${JSON.stringify({ error: "question is required" })}\n\n`
+      );
       res.end();
       return;
     }
@@ -131,7 +133,10 @@ app.get("/api/chat", async (req, res) => {
     const stream = await model.stream(prompt);
 
     for await (const chunk of stream) {
-      const text = typeof chunk.content === "string" ? chunk.content : String(chunk.content);
+      const text =
+        typeof chunk.content === "string"
+          ? chunk.content
+          : String(chunk.content);
       res.write(`data: ${text}\n\n`);
     }
     res.write("data: [DONE]\n\n");
@@ -141,10 +146,14 @@ app.get("/api/chat", async (req, res) => {
     if (!res.headersSent) {
       res.status(500).json({ error: e.message || "internal error" });
     } else {
-      res.write(`data: ${JSON.stringify({ error: e.message || "internal error" })}\n\n`);
+      res.write(
+        `data: ${JSON.stringify({ error: e.message || "internal error" })}\n\n`
+      );
       res.end();
     }
   }
 });
 
-app.listen(PORT, () => console.log(`Server listening on http://localhost:${PORT}`));
+app.listen(PORT, () =>
+  console.log(`Server listening on http://localhost:${PORT}`)
+);

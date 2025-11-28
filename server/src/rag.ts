@@ -15,7 +15,3 @@ export async function buildContext(query: string, k = 5): Promise<string> {
   const context = docs.map((d, i) => `【片段${i + 1}】${d.text}`).join("\n\n");
   return context;
 }
-
-
-
-

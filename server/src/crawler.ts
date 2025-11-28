@@ -1,10 +1,10 @@
-import fs from 'fs/promises';
-import Bottleneck from 'bottleneck';
-import { sanitizeWindowsPath } from './utils/pathUtils.js';
+import fs from "fs/promises";
+import Bottleneck from "bottleneck";
+import { sanitizeWindowsPath } from "./utils/pathUtils.js";
 
-const baseURL = 'https://school.jinritemai.com/api/eschool/v2/library';
-const output = 'articles';
-const merchantID = '11593';
+const baseURL = "https://school.jinritemai.com/api/eschool/v2/library";
+const output = "articles";
+const merchantID = "11593";
 
 const limiter = new Bottleneck({
   maxConcurrent: 30,
@@ -31,22 +31,31 @@ export async function fetchArticle(id: string) {
 }
 
 export function parseMenu(json: any) {
-  const { data: { articles } } = json;
+  const {
+    data: { articles },
+  } = json;
   return articles.map((item: any) => item.id) as string[];
 }
 
 export function parseArticle(json: any) {
-  const { data: { article_info: { content, name, update_timestamp } } } = json;
+  const {
+    data: {
+      article_info: { content, name, update_timestamp },
+    },
+  } = json;
   return { content: JSON.parse(content), name, update_timestamp };
 }
 
 function saveJSON(data: object, filePath: string) {
-  return fs.writeFile(filePath, JSON.stringify(data, null, 2), 'utf-8');
+  return fs.writeFile(filePath, JSON.stringify(data, null, 2), "utf-8");
 }
 
 export function saveArticleJSON(article: any) {
   const sanitizedName = sanitizeWindowsPath(article.name);
-  return saveJSON(article.content, `${output}/${sanitizedName}-${article.update_timestamp}.json`);
+  return saveJSON(
+    article.content,
+    `${output}/${sanitizedName}-${article.update_timestamp}.json`
+  );
 }
 
 export async function saveArticle(id: string) {
@@ -60,9 +69,11 @@ export async function fetchAllArticles() {
   const menu = await fetchMerchantMenu();
   const idList = parseMenu(menu);
   await fs.mkdir(output, { recursive: true });
-  return Promise.all(idList.map(async id => {
-    const json = await limiter.schedule(() => fetchArticle(id));
-    const article = parseArticle(json);
-    await saveArticleJSON(article);
-  }));
+  return Promise.all(
+    idList.map(async (id) => {
+      const json = await limiter.schedule(() => fetchArticle(id));
+      const article = parseArticle(json);
+      await saveArticleJSON(article);
+    })
+  );
 }

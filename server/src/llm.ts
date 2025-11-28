@@ -10,7 +10,3 @@ export function createChatModel() {
     model: "glm-4",
   });
 }
-
-
-
-

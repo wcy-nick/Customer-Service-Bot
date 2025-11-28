@@ -36,6 +36,7 @@ server/
 ### config.ts
 
 应用配置文件，负责：
+
 - 使用dotenv加载环境变量
 - 导出应用配置项，包括API密钥、模型名称、端口号等
 - 配置默认值和环境变量回退机制
@@ -43,6 +44,7 @@ server/
 ### llm.ts
 
 语言模型配置和初始化：
+
 - 导入并配置ChatZhipuAI类
 - 创建createChatModel函数，使用API密钥和指定模型初始化ChatZhipuAI实例
 - 支持模型参数配置
@@ -50,6 +52,7 @@ server/
 ### vectorStore.ts
 
 向量存储管理：
+
 - 初始化Qdrant客户端连接
 - 实现ensureCollection方法，确保向量集合存在
 - 实现upsertDocuments方法，将文档分块、嵌入并存储到Qdrant
@@ -58,6 +61,7 @@ server/
 ### zhipuEmbedding.ts
 
 嵌入服务实现：
+
 - 初始化ZhipuAI嵌入模型
 - 实现embedDocuments和embedQuery方法
 - 处理模型名称映射和API错误
@@ -66,12 +70,14 @@ server/
 ### rag.ts
 
 检索增强生成实现：
+
 - 实现基于检索结果构建提示的功能
 - 结合上下文信息优化回答质量
 
 ### index.ts
 
 服务器主入口和API定义：
+
 - 初始化Express服务器
 - 配置中间件（CORS、静态文件、文件上传等）
 - 定义和实现API路由：
@@ -88,6 +94,7 @@ server/
 非流式AI问答接口
 
 **请求参数**：
+
 ```json
 {
   "query": "你的问题"
@@ -95,6 +102,7 @@ server/
 ```
 
 **响应**：
+
 ```json
 {
   "answer": "AI生成的回答"
@@ -106,9 +114,11 @@ server/
 基于SSE的流式AI问答接口
 
 **请求参数**：
+
 - query: 问题文本（URL参数）
 
 **响应**：
+
 - 流式文本响应，逐字显示AI生成的回答
 
 ### 3. POST /api/embed
@@ -116,6 +126,7 @@ server/
 文本嵌入接口，将文本内容添加到知识库
 
 **请求参数**：
+
 ```json
 {
   "text": "要添加到知识库的文本内容"
@@ -123,6 +134,7 @@ server/
 ```
 
 **响应**：
+
 ```json
 {
   "status": "success",
@@ -135,9 +147,11 @@ server/
 文件上传和处理接口
 
 **请求参数**：
+
 - file: PDF或TXT文件（FormData格式）
 
 **响应**：
+
 ```json
 {
   "status": "success",
@@ -193,11 +207,13 @@ npm install
 确保Qdrant向量数据库服务正在运行。您可以使用Docker启动Qdrant：
 
 bash
+
 ```bash
 docker run -p 6333:6333 -v $(pwd)/qdrant_storage:/qdrant/storage qdrant/qdrant
 ```
 
 PowerShell
+
 ```powershell
 docker run -p 6333:6333 -v ${pwd}/qdrant_storage:/qdrant/storage qdrant/qdrant
 ```

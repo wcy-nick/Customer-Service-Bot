@@ -1,0 +1,7 @@
+{
+  "name": "customer-service-bot-root",
+  "private": true,
+  "scripts": {
+    "prepare": "husky"
+  }
+}

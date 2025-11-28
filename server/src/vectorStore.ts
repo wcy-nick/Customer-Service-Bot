@@ -68,7 +68,3 @@ export async function retrieveRelevantChunks(
     score: pt.score ?? 0,
   }));
 }
-
-
-
-
