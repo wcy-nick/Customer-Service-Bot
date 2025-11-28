@@ -73,7 +73,7 @@ function App() {
     setAnswer("");
     if (!question.trim()) return;
     setStreaming(true);
-    const url = `${API_BASE}/api/chat/stream?question=${encodeURIComponent(
+    const url = `${API_BASE}/api/chat?question=${encodeURIComponent(
       question
     )}`;
     const evtSource = new EventSource(url);

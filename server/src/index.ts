@@ -37,7 +37,7 @@ const storage = multer.diskStorage({
 
 const upload = multer({ storage });
 
-// /api/upload: 接收 PDF / 文本文件，自动解析并向量化
+// 接收 PDF / 文本文件，自动解析并向量化
 app.post("/api/upload", upload.single("file"), async (req, res) => {
   try {
     if (!req.file) {
@@ -59,7 +59,9 @@ app.post("/api/upload", upload.single("file"), async (req, res) => {
       console.log(`读取文本文件: ${filename}，长度: ${text.length} 字符`);
     }
 
-    if (!text.trim()) {
+    text = text.trim();
+
+    if (!text) {
       return res.status(400).json({ error: "文件内容为空或无法提取文本" });
     }
 
@@ -81,10 +83,11 @@ app.post("/api/upload", upload.single("file"), async (req, res) => {
   }
 });
 
-// /api/embed: 接收原始文本，分割 + embedding + 写入向量库
+// 接收原始文本，分割 + embedding + 写入向量库
 app.post("/api/embed", async (req, res) => {
   try {
-    const { text } = req.body as { text?: string };
+    let { text } = req.body as { text?: string };
+    text = text?.trim() || "";
     if (!text) {
       return res.status(400).json({ error: "text is required" });
     }
@@ -97,28 +100,11 @@ app.post("/api/embed", async (req, res) => {
   }
 });
 
-// /api/chat: 非流式 RAG 问答
-app.post("/api/chat", async (req, res) => {
+// SSE 流式 RAG 问答
+app.get("/api/chat", async (req, res) => {
   try {
-    const { question } = req.body as { question?: string };
-    if (!question) {
-      return res.status(400).json({ error: "question is required" });
-    }
-    const context = await buildContext(question, 5);
-    const model = createChatModel();
-    const prompt = `你是一个商家知识库问答助手。根据以下知识库内容回答用户问题，如果知识中没有相关信息，请如实说明。\n\n知识库内容：\n${context}\n\n问题：${question}\n\n请用中文回答：`;
-    const resp = await model.invoke(prompt);
-    return res.json({ answer: resp.content });
-  } catch (e: any) {
-    console.error(e);
-    return res.status(500).json({ error: e.message || "internal error" });
-  }
-});
-
-// /api/chat/stream: SSE 流式 RAG 问答
-app.get("/api/chat/stream", async (req, res) => {
-  try {
-    const question = (req.query.question as string) || "";
+    let question = (req.query.question as string) || "";
+    question = question.trim();
     if (!question) {
       res.writeHead(400, {
         "Content-Type": "text/event-stream",
@@ -159,6 +145,4 @@ app.get("/api/chat/stream", async (req, res) => {
   }
 });
 
-app.listen(PORT, () => {
-  console.log(`Server listening on http://localhost:${PORT}`);
-});
+app.listen(PORT, () => console.log(`Server listening on http://localhost:${PORT}`));
