@@ -41,7 +41,7 @@ export async function upsertDocuments(chunks: string[]) {
     },
   }));
 
-  await qdrantClient.upsert(QDRANT_COLLECTION, {
+  await qdrantClient.upsert(config.qdrantCollection, {
     wait: true,
     points,
   });
@@ -58,7 +58,7 @@ export async function retrieveRelevantChunks(
 ): Promise<RetrievedChunk[]> {
   await ensureCollection();
   const queryVec = await embedding.embedOne(query);
-  const res = await qdrantClient.search(QDRANT_COLLECTION, {
+  const res = await qdrantClient.search(config.qdrantCollection, {
     vector: queryVec,
     limit: k,
   });
