@@ -27,18 +27,18 @@ import { AuthGuard } from "@nestjs/passport";
 import { FileInterceptor } from "@nestjs/platform-express";
 import type { Express } from "express";
 
-@Controller("api")
+@Controller("api/documents")
 export class DocumentController {
   private readonly logger = new Logger(DocumentController.name);
 
   constructor(private readonly documentService: DocumentService) {}
 
-  @Get("documents")
+  @Get()
   async getDocuments(@Query() query: GetDocumentsQuery): Promise<any> {
     return this.documentService.getDocuments(query);
   }
 
-  @Get("documents/:id")
+  @Get(":id")
   async getDocumentById(
     @Param("id") id: string,
   ): Promise<KnowledgeDocumentDetailDto> {
@@ -46,7 +46,7 @@ export class DocumentController {
   }
 
   @UseGuards(AuthGuard("jwt"))
-  @Post("documents")
+  @Post()
   @UseInterceptors(FileInterceptor("file"))
   async createDocument(
     @Body() body: CreateDocumentInput,
@@ -66,7 +66,7 @@ export class DocumentController {
   }
 
   @UseGuards(AuthGuard("jwt"))
-  @Put("documents/:id")
+  @Put(":id")
   async updateDocument(
     @Param("id") id: string,
     @Body() body: Partial<KnowledgeDocumentDto>,
@@ -77,13 +77,13 @@ export class DocumentController {
   }
 
   @UseGuards(AuthGuard("jwt"))
-  @Delete("documents/:id")
+  @Delete(":id")
   async deleteDocument(@Param("id") id: string): Promise<void> {
     return this.documentService.deleteDocument(id);
   }
 
   @UseGuards(AuthGuard("jwt"))
-  @Post("documents/:id/publish")
+  @Post(":id/publish")
   async publishDocument(
     @Param("id") id: string,
   ): Promise<KnowledgeDocumentDto> {
@@ -91,7 +91,7 @@ export class DocumentController {
   }
 
   @UseGuards(AuthGuard("jwt"))
-  @Post("documents/:id/archive")
+  @Post(":id/archive")
   async archiveDocument(
     @Param("id") id: string,
   ): Promise<KnowledgeDocumentDto> {
@@ -99,19 +99,19 @@ export class DocumentController {
   }
 
   @UseGuards(AuthGuard("jwt"))
-  @Post("documents/:id/vectorize")
+  @Post(":id/vectorize")
   async vectorizeDocument(@Param("id") id: string): Promise<void> {
     return this.documentService.vectorizeDocument(id);
   }
 
-  @Get("documents/:id/versions")
+  @Get(":id/versions")
   async getDocumentVersions(
     @Param("id") id: string,
   ): Promise<DocumentVersionDto[]> {
     return this.documentService.getDocumentVersions(id);
   }
 
-  @Get("documents/:id/versions/:version")
+  @Get(":id/versions/:version")
   async getDocumentVersionDetail(
     @Param("id") id: string,
     @Param("version", ParseIntPipe) version: number,
@@ -120,7 +120,7 @@ export class DocumentController {
   }
 
   @UseGuards(AuthGuard("jwt"))
-  @Post("documents/:id/rollback/:version")
+  @Post(":id/rollback/:version")
   async rollbackDocument(
     @Param("id") id: string,
     @Param("version", ParseIntPipe) version: number,
