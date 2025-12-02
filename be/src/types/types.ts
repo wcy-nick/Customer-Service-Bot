@@ -91,6 +91,71 @@ export interface PaginatedResponse<T> {
   };
 }
 
+// 文档相关接口
+export interface KnowledgeDocumentDto {
+  id: string;
+  title: string;
+  summary: string;
+  business_category_id: string;
+  scenario_category_id?: string;
+  status: string;
+  source_type?: string;
+  source_url?: string;
+  tags?: string[];
+  read_count: number;
+  created_by?: string;
+  created_at: Date;
+  updated_at: Date;
+  file_url?: string;
+}
+
+export interface KnowledgeDocumentDetailDto extends KnowledgeDocumentDto {
+  content: string;
+  business_category?: {
+    id: string;
+    name: string;
+  };
+  scenario_category?: {
+    id: string;
+    name: string;
+  };
+}
+
+export interface DocumentVersionDto {
+  version: string;
+  created_by: string;
+  created_at: Date;
+  description?: string;
+}
+
+export interface DocumentVersionDetailDto extends DocumentVersionDto {
+  content: string;
+}
+
+export interface CreateDocumentInput {
+  title: string;
+  content: string;
+  summary?: string;
+  business_category_id: string;
+  scenario_category_id?: string;
+  source_type?: "manual" | "douyin" | "wechat" | "other";
+  source_url?: string;
+  tags?: string[];
+}
+
+export interface GetDocumentsQuery {
+  page?: number;
+  limit?: number;
+  search?: string;
+  business_category_id?: string;
+  scenario_category_id?: string;
+  status?: string[];
+  source_type?: string;
+  tags?: string[];
+  sort_by?: "created_at" | "updated_at" | "title" | "read_count";
+  sort_order?: "asc" | "desc";
+}
+
 // 认证相关接口
 export interface RegisterUserInput {
   username: string;

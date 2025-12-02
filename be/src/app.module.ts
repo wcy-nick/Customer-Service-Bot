@@ -11,6 +11,7 @@ import { BusinessCategoryController } from "./business-category.controller";
 import { BusinessCategoryService } from "./business-category.service";
 import { ScenarioController } from "./scenario.controller";
 import { ScenarioService } from "./scenario.service";
+import { QdrantService } from "./qdrant.service";
 
 @Module({
   imports: [],
@@ -29,6 +30,7 @@ import { ScenarioService } from "./scenario.service";
     AuthGuard,
     BusinessCategoryService,
     ScenarioService,
+    QdrantService,
   ],
 })
 export class AppModule {}
