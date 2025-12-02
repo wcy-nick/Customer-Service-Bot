@@ -12,7 +12,7 @@
  */
 export function sanitizeWindowsPath(
   path: string,
-  replacement: string = "_"
+  replacement: string = "_",
 ): string {
   if (!path) return "";
 
@@ -21,9 +21,6 @@ export function sanitizeWindowsPath(
 
   // 替换非法字符
   let sanitized = path.replace(illegalCharsRegex, replacement);
-
-  // 移除控制字符
-  sanitized = sanitized.replace(/[\x00-\x1f\x7f]/g, replacement);
 
   // 处理保留文件名（CON, PRN, AUX, NUL等）
   const reservedNames = [

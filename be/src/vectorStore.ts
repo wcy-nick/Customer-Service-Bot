@@ -15,7 +15,7 @@ const embedding = new ZhipuEmbedding();
 export async function ensureCollection() {
   const exists = await qdrantClient.getCollection(config.qdrantCollection).then(
     () => true,
-    () => false
+    () => false,
   );
   if (!exists) {
     await qdrantClient.createCollection(config.qdrantCollection, {
@@ -54,7 +54,7 @@ export interface RetrievedChunk {
 
 export async function retrieveRelevantChunks(
   query: string,
-  k = 5
+  k = 5,
 ): Promise<RetrievedChunk[]> {
   await ensureCollection();
   const queryVec = await embedding.embedOne(query);
@@ -64,7 +64,7 @@ export async function retrieveRelevantChunks(
   });
 
   return res.map((pt) => ({
-    text: (pt.payload as any)?.text as string,
+    text: (pt.payload as { text: string }).text,
     score: pt.score ?? 0,
   }));
 }
