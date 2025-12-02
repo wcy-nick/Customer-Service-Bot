@@ -7,10 +7,28 @@ import { AuthService } from "./auth.service";
 import { UserController } from "./user.controller";
 import { UserService } from "./user.service";
 import { AuthGuard } from "./auth.guard";
+import { BusinessCategoryController } from "./business-category.controller";
+import { BusinessCategoryService } from "./business-category.service";
+import { ScenarioController } from "./scenario.controller";
+import { ScenarioService } from "./scenario.service";
 
 @Module({
   imports: [],
-  controllers: [AppController, AuthController, UserController],
-  providers: [AppService, PrismaService, AuthService, UserService, AuthGuard],
+  controllers: [
+    AppController,
+    AuthController,
+    UserController,
+    BusinessCategoryController,
+    ScenarioController,
+  ],
+  providers: [
+    AppService,
+    PrismaService,
+    AuthService,
+    UserService,
+    AuthGuard,
+    BusinessCategoryService,
+    ScenarioService,
+  ],
 })
 export class AppModule {}

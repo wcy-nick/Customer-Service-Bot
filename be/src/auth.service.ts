@@ -6,33 +6,12 @@ import {
 import { PrismaService } from "./prisma.service";
 import * as bcrypt from "bcrypt";
 import * as jwt from "jsonwebtoken";
-
-interface RegisterUserInput {
-  username: string;
-  email: string;
-  password: string;
-  display_name?: string;
-}
-
-interface LoginUserInput {
-  username: string;
-  password: string;
-}
-
-export interface UserDto {
-  id: string;
-  username: string;
-  email: string;
-  display_name?: string;
-  avatar_url?: string;
-  role: string;
-}
-
-interface TokenPayload {
-  userId: string;
-  username: string;
-  email: string;
-}
+import {
+  RegisterUserInput,
+  LoginUserInput,
+  UserDto,
+  TokenPayload,
+} from "./types/types";
 
 @Injectable()
 export class AuthService {

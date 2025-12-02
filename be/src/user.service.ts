@@ -5,6 +5,13 @@ import {
 } from "@nestjs/common";
 import { PrismaService } from "./prisma.service";
 import { Prisma } from "@prisma/client";
+import type {
+  UserDto,
+  UpdateProfileInput,
+  UpdateRoleInput,
+  GetUsersQuery,
+  PaginatedResponse,
+} from "./types/types";
 
 interface UserModel {
   id: string;
@@ -16,43 +23,6 @@ interface UserModel {
   createdAt: Date;
   isActive: boolean;
   lastLoginAt?: Date | null;
-}
-interface UserDto {
-  id: string;
-  username: string;
-  email: string;
-  display_name?: string;
-  avatar_url?: string;
-  role: string;
-  created_at: Date;
-  is_active: boolean;
-  last_login_at?: Date;
-}
-
-interface UpdateProfileInput {
-  display_name?: string;
-  avatar_url?: string;
-}
-
-interface UpdateRoleInput {
-  role: "admin" | "editor" | "user";
-}
-
-interface GetUsersQuery {
-  page?: number;
-  limit?: number;
-  search?: string;
-  role?: string;
-}
-
-interface PaginatedResponse<T> {
-  data: T[];
-  meta: {
-    total: number;
-    page: number;
-    limit: number;
-    total_pages: number;
-  };
 }
 
 @Injectable()

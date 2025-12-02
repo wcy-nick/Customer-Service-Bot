@@ -6,46 +6,20 @@ import {
   UnauthorizedException,
 } from "@nestjs/common";
 import { AuthService } from "./auth.service";
-
-interface LoginRequest {
-  username: string;
-  password: string;
-}
-
-interface RegisterRequest {
-  username: string;
-  email: string;
-  password: string;
-  display_name?: string;
-}
-
-interface RefreshTokenRequest {
-  refresh_token: string;
-}
-
-interface LoginResponse {
-  access_token: string;
-  refresh_token: string;
-  user: {
-    id: string;
-    username: string;
-    email: string;
-    display_name?: string;
-    avatar_url?: string;
-    role: string;
-  };
-}
-
-interface RefreshTokenResponse {
-  access_token: string;
-}
+import type {
+  LoginUserInput,
+  RefreshTokenRequest,
+  LoginResponse,
+  RefreshTokenResponse,
+  RegisterUserInput,
+} from "./types/types";
 
 @Controller("api/auth")
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
   @Post("login")
-  async login(@Body() loginData: LoginRequest): Promise<LoginResponse> {
+  async login(@Body() loginData: LoginUserInput): Promise<LoginResponse> {
     return this.authService.login(loginData);
   }
 
@@ -75,7 +49,7 @@ export class AuthController {
   }
 
   @Post("register")
-  async register(@Body() registerData: RegisterRequest) {
+  async register(@Body() registerData: RegisterUserInput) {
     return this.authService.register(registerData);
   }
 }
