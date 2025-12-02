@@ -27,8 +27,9 @@ export class ArticleCrawler {
   private readonly merchantID: string = "11593";
   private readonly limiter: Bottleneck;
 
-  constructor() {
+  constructor(opt?: Bottleneck.ConstructorOptions) {
     this.limiter = new Bottleneck({
+      ...opt,
       maxConcurrent: 30,
       minTime: 50,
     });
@@ -39,13 +40,13 @@ export class ArticleCrawler {
     return response.json() as Promise<T>;
   }
 
-  private async fetchMenu(node_id: string): Promise<any> {
+  private async fetchMenu(node_id: string): Promise<MenuResponse> {
     const url = `${this.baseURL}/article/list?node_id=${node_id}&page_size=1000`;
     return this.fetchData(url);
   }
 
   public async fetchMerchantMenu(): Promise<MenuResponse> {
-    return this.fetchMenu(this.merchantID) as Promise<MenuResponse>;
+    return this.fetchMenu(this.merchantID);
   }
 
   public async fetchArticle(id: string): Promise<ArticleResponse> {
