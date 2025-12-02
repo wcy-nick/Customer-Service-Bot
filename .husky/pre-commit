@@ -1,2 +1,2 @@
-cd server
+cd be
 npm run lint
