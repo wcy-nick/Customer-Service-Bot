@@ -4,7 +4,7 @@ export default {
   useTabs: false,
   semi: true,
   singleQuote: false,
-  trailingComma: "es5",
+  trailingComma: "all",
   bracketSpacing: true,
   arrowParens: "always",
   endOfLine: "lf",

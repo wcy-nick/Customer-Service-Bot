@@ -2,9 +2,9 @@ import {
   Injectable,
   NotFoundException,
   ForbiddenException,
-} from '@nestjs/common';
-import { PrismaService } from './prisma.service';
-import { Prisma } from '@prisma/client';
+} from "@nestjs/common";
+import { PrismaService } from "./prisma.service";
+import { Prisma } from "@prisma/client";
 
 interface UserModel {
   id: string;
@@ -35,7 +35,7 @@ interface UpdateProfileInput {
 }
 
 interface UpdateRoleInput {
-  role: 'admin' | 'editor' | 'user';
+  role: "admin" | "editor" | "user";
 }
 
 interface GetUsersQuery {
@@ -68,7 +68,7 @@ export class UserService {
     });
 
     if (!user) {
-      throw new NotFoundException('用户不存在');
+      throw new NotFoundException("用户不存在");
     }
 
     return this.mapUserToDto(user);
@@ -86,7 +86,7 @@ export class UserService {
     });
 
     if (!user) {
-      throw new NotFoundException('用户不存在');
+      throw new NotFoundException("用户不存在");
     }
 
     const updatedUser = await this.prisma.client.user.update({
@@ -114,9 +114,9 @@ export class UserService {
 
     if (query.search) {
       where.OR = [
-        { username: { contains: query.search, mode: 'insensitive' } },
-        { email: { contains: query.search, mode: 'insensitive' } },
-        { displayName: { contains: query.search, mode: 'insensitive' } },
+        { username: { contains: query.search, mode: "insensitive" } },
+        { email: { contains: query.search, mode: "insensitive" } },
+        { displayName: { contains: query.search, mode: "insensitive" } },
       ];
     }
 
@@ -132,7 +132,7 @@ export class UserService {
       where,
       skip: offset,
       take: limit,
-      orderBy: { createdAt: 'desc' },
+      orderBy: { createdAt: "desc" },
     });
 
     return {
@@ -159,13 +159,13 @@ export class UserService {
       where: { id: currentUserId },
     });
 
-    if (!currentUser || currentUser.role !== 'admin') {
-      throw new ForbiddenException('只有管理员可以更新用户角色');
+    if (!currentUser || currentUser.role !== "admin") {
+      throw new ForbiddenException("只有管理员可以更新用户角色");
     }
 
     // 不能更改自己的角色
     if (currentUserId === userId) {
-      throw new ForbiddenException('不能更改自己的角色');
+      throw new ForbiddenException("不能更改自己的角色");
     }
 
     // 查找目标用户
@@ -174,7 +174,7 @@ export class UserService {
     });
 
     if (!targetUser) {
-      throw new NotFoundException('目标用户不存在');
+      throw new NotFoundException("目标用户不存在");
     }
 
     // 更新角色

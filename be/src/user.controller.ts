@@ -8,9 +8,9 @@ import {
   Req,
   UseGuards,
   UnauthorizedException,
-} from '@nestjs/common';
-import { UserService } from './user.service';
-import { AuthGuard } from './auth.guard';
+} from "@nestjs/common";
+import { UserService } from "./user.service";
+import { AuthGuard } from "./auth.guard";
 
 interface UserDto {
   id: string;
@@ -30,7 +30,7 @@ interface UpdateProfileInput {
 }
 
 interface UpdateRoleInput {
-  role: 'admin' | 'editor' | 'user';
+  role: "admin" | "editor" | "user";
 }
 
 interface PaginatedResponse<T> {
@@ -43,7 +43,7 @@ interface PaginatedResponse<T> {
   };
 }
 
-@Controller('api/users')
+@Controller("api/users")
 @UseGuards(AuthGuard)
 export class UserController {
   constructor(private readonly userService: UserService) {}
@@ -53,11 +53,11 @@ export class UserController {
    * GET /api/users/profile
    * Headers: { Authorization: Bearer {token} }
    */
-  @Get('profile')
+  @Get("profile")
   async getProfile(@Req() req: { user?: { id: string } }): Promise<UserDto> {
     const userId = req.user?.id;
     if (!userId) {
-      throw new UnauthorizedException('用户未认证');
+      throw new UnauthorizedException("用户未认证");
     }
     return this.userService.getProfile(userId);
   }
@@ -67,14 +67,14 @@ export class UserController {
    * PUT /api/users/profile
    * Headers: { Authorization: Bearer {token} }
    */
-  @Put('profile')
+  @Put("profile")
   async updateProfile(
     @Req() req: { user?: { id: string } },
     @Body() body: UpdateProfileInput,
   ): Promise<UserDto> {
     const userId = req.user?.id;
     if (!userId) {
-      throw new UnauthorizedException('用户未认证');
+      throw new UnauthorizedException("用户未认证");
     }
     return this.userService.updateProfile(userId, body);
   }
@@ -97,7 +97,7 @@ export class UserController {
   ): Promise<PaginatedResponse<UserDto>> {
     const currentUserId = req.user?.id;
     if (!currentUserId) {
-      throw new UnauthorizedException('用户未认证');
+      throw new UnauthorizedException("用户未认证");
     }
     return this.userService.getUsers(query);
   }
@@ -107,15 +107,15 @@ export class UserController {
    * PUT /api/users/:id/role
    * Headers: { Authorization: Bearer {token} }
    */
-  @Put(':id/role')
+  @Put(":id/role")
   async updateUserRole(
     @Req() req: { user?: { id: string } },
-    @Param('id') userId: string,
+    @Param("id") userId: string,
     @Body() body: UpdateRoleInput,
   ): Promise<UserDto> {
     const currentUserId = req.user?.id;
     if (!currentUserId) {
-      throw new UnauthorizedException('用户未认证');
+      throw new UnauthorizedException("用户未认证");
     }
     return this.userService.updateUserRole(userId, body, currentUserId);
   }

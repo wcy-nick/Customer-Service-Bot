@@ -4,8 +4,8 @@ import {
   Body,
   Headers,
   UnauthorizedException,
-} from '@nestjs/common';
-import { AuthService } from './auth.service';
+} from "@nestjs/common";
+import { AuthService } from "./auth.service";
 
 interface LoginRequest {
   username: string;
@@ -40,41 +40,41 @@ interface RefreshTokenResponse {
   access_token: string;
 }
 
-@Controller('api/auth')
+@Controller("api/auth")
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
-  @Post('login')
+  @Post("login")
   async login(@Body() loginData: LoginRequest): Promise<LoginResponse> {
     return this.authService.login(loginData);
   }
 
-  @Post('refresh')
+  @Post("refresh")
   async refreshToken(
     @Body() refreshData: RefreshTokenRequest,
   ): Promise<RefreshTokenResponse> {
     if (!refreshData.refresh_token) {
-      throw new UnauthorizedException('Refresh token is required');
+      throw new UnauthorizedException("Refresh token is required");
     }
     return this.authService.refreshToken(refreshData.refresh_token);
   }
 
-  @Post('logout')
-  async logout(@Headers('Authorization') authorization: string): Promise<void> {
+  @Post("logout")
+  async logout(@Headers("Authorization") authorization: string): Promise<void> {
     if (!authorization) {
-      throw new UnauthorizedException('Authorization header is required');
+      throw new UnauthorizedException("Authorization header is required");
     }
 
     const tokenMatch = authorization.match(/^Bearer\s+(.*)$/);
     if (!tokenMatch) {
-      throw new UnauthorizedException('Invalid authorization header format');
+      throw new UnauthorizedException("Invalid authorization header format");
     }
 
     const token = tokenMatch[1];
     return this.authService.logout(token);
   }
 
-  @Post('register')
+  @Post("register")
   async register(@Body() registerData: RegisterRequest) {
     return this.authService.register(registerData);
   }

@@ -2,10 +2,10 @@ import {
   Injectable,
   UnauthorizedException,
   ConflictException,
-} from '@nestjs/common';
-import { PrismaService } from './prisma.service';
-import * as bcrypt from 'bcrypt';
-import * as jwt from 'jsonwebtoken';
+} from "@nestjs/common";
+import { PrismaService } from "./prisma.service";
+import * as bcrypt from "bcrypt";
+import * as jwt from "jsonwebtoken";
 
 interface RegisterUserInput {
   username: string;
@@ -51,17 +51,17 @@ export class AuthService {
   }
 
   private generateAccessToken(payload: TokenPayload): string {
-    return jwt.sign(payload, process.env.JWT_SECRET || 'your-secret-key', {
-      expiresIn: '15m',
+    return jwt.sign(payload, process.env.JWT_SECRET || "your-secret-key", {
+      expiresIn: "15m",
     });
   }
 
   private generateRefreshToken(payload: TokenPayload): string {
     return jwt.sign(
       payload,
-      process.env.JWT_REFRESH_SECRET || 'your-refresh-secret-key',
+      process.env.JWT_REFRESH_SECRET || "your-refresh-secret-key",
       {
-        expiresIn: '7d',
+        expiresIn: "7d",
       },
     );
   }
@@ -97,9 +97,9 @@ export class AuthService {
 
     if (existingUser) {
       if (existingUser.username === input.username) {
-        throw new ConflictException('用户名已存在');
+        throw new ConflictException("用户名已存在");
       }
-      throw new ConflictException('邮箱已被注册');
+      throw new ConflictException("邮箱已被注册");
     }
 
     // 加密密码
@@ -112,7 +112,7 @@ export class AuthService {
         email: input.email,
         passwordHash,
         displayName: input.display_name,
-        role: 'user',
+        role: "user",
       },
     });
 
@@ -140,12 +140,12 @@ export class AuthService {
       !user ||
       !(await this.comparePasswords(input.password, user.passwordHash))
     ) {
-      throw new UnauthorizedException('用户名或密码错误');
+      throw new UnauthorizedException("用户名或密码错误");
     }
 
     // 检查用户是否激活
     if (!user.isActive) {
-      throw new UnauthorizedException('用户账号已被禁用');
+      throw new UnauthorizedException("用户账号已被禁用");
     }
 
     // 更新最后登录时间
@@ -187,7 +187,7 @@ export class AuthService {
       // 验证refresh token
       const payload = jwt.verify(
         refreshToken,
-        process.env.JWT_REFRESH_SECRET || 'your-refresh-secret-key',
+        process.env.JWT_REFRESH_SECRET || "your-refresh-secret-key",
       ) as TokenPayload;
 
       // 查找用户session
@@ -205,7 +205,7 @@ export class AuthService {
       }
 
       if (!isValidToken) {
-        throw new UnauthorizedException('无效的refresh token');
+        throw new UnauthorizedException("无效的refresh token");
       }
 
       // 生成新的access token
@@ -217,7 +217,7 @@ export class AuthService {
 
       return { access_token: newAccessToken };
     } catch {
-      throw new UnauthorizedException('无效的refresh token');
+      throw new UnauthorizedException("无效的refresh token");
     }
   }
 
@@ -226,7 +226,7 @@ export class AuthService {
       // 验证token并获取用户信息
       const payload = jwt.verify(
         token,
-        process.env.JWT_SECRET || 'your-secret-key',
+        process.env.JWT_SECRET || "your-secret-key",
       ) as TokenPayload;
 
       // 可以选择在这里删除所有用户的session
