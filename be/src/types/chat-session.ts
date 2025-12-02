@@ -1,0 +1,51 @@
+// 聊天会话相关的DTO类型定义
+
+// 分页响应通用接口
+export interface PaginatedResponse<T> {
+  items: T[];
+  total: number;
+  page: number;
+  limit: number;
+  hasNextPage: boolean;
+}
+
+// 聊天会话基础信息DTO
+export interface ChatSessionDto {
+  id: string;
+  title?: string;
+  messageCount: number;
+  lastMessageAt?: string;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// 聊天消息基础信息DTO（用于会话详情）
+export interface ChatMessageDto {
+  id: string;
+  role: string;
+  content: string;
+  createdAt: string;
+}
+
+// 聊天会话详细信息DTO
+export interface ChatSessionDetailDto extends ChatSessionDto {
+  messages: ChatMessageDto[];
+}
+
+// 创建聊天会话请求DTO
+export interface CreateChatSessionDto {
+  title?: string;
+}
+
+// 更新聊天会话标题请求DTO
+export interface UpdateChatSessionTitleDto {
+  title: string;
+}
+
+// 获取聊天会话列表查询参数
+export interface GetChatSessionsQuery {
+  page?: number;
+  limit?: number;
+  is_active?: boolean;
+}

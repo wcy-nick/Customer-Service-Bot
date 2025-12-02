@@ -16,6 +16,8 @@ import { DocumentController } from "./document.controller";
 import { DocumentService } from "./document.service";
 import { UploadController } from "./upload.controller";
 import { UploadService } from "./upload.service";
+import { ChatSessionController } from "./chat-session.controller";
+import { ChatSessionService } from "./chat-session.service";
 
 @Module({
   imports: [],
@@ -27,6 +29,7 @@ import { UploadService } from "./upload.service";
     ScenarioController,
     DocumentController,
     UploadController,
+    ChatSessionController,
   ],
   providers: [
     AppService,
@@ -39,6 +42,7 @@ import { UploadService } from "./upload.service";
     QdrantService,
     DocumentService,
     UploadService,
+    ChatSessionService,
   ],
 })
 export class AppModule {}
