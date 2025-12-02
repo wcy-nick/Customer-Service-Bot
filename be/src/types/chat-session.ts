@@ -1,5 +1,12 @@
 // 聊天会话相关的DTO类型定义
 
+// 消息类型枚举
+export enum MessageType {
+  TEXT = "text",
+  VOICE = "voice",
+  IMAGE = "image",
+}
+
 // 分页响应通用接口
 export interface PaginatedResponse<T> {
   items: T[];
@@ -25,6 +32,9 @@ export interface ChatMessageDto {
   id: string;
   role: string;
   content: string;
+  message_type?: MessageType;
+  audio_file_path?: string;
+  image_file_path?: string;
   createdAt: string;
 }
 
@@ -48,4 +58,18 @@ export interface GetChatSessionsQuery {
   page?: number;
   limit?: number;
   is_active?: boolean;
+}
+
+// 获取消息列表查询参数
+export interface GetMessagesQuery {
+  page?: number;
+  limit?: number;
+}
+
+// 发送消息请求DTO
+export interface SendMessageDto {
+  content: string;
+  message_type?: MessageType;
+  audio_file_path?: string;
+  image_file_path?: string;
 }

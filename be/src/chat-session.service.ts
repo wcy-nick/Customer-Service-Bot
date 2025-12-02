@@ -8,6 +8,9 @@ import {
   PaginatedResponse,
   UpdateChatSessionTitleDto,
   ChatMessageDto,
+  GetMessagesQuery,
+  SendMessageDto,
+  MessageType,
 } from "./types/chat-session";
 
 @Injectable()
@@ -196,5 +199,154 @@ export class ChatSessionService {
     } catch {
       throw new HttpException("Chat session not found", HttpStatus.NOT_FOUND);
     }
+  }
+
+  /**
+   * 获取会话的消息列表（带分页）
+   */
+  async getMessages(
+    userId: string,
+    sessionId: string,
+    query: GetMessagesQuery,
+  ): Promise<PaginatedResponse<ChatMessageDto>> {
+    // 验证会话是否存在且属于当前用户
+    const session = await this.prismaService.client.chatSession.findUnique({
+      where: {
+        id: sessionId,
+        userId,
+      },
+    });
+
+    if (!session) {
+      throw new HttpException("Chat session not found", HttpStatus.NOT_FOUND);
+    }
+
+    const page = query.page || 1;
+    const limit = query.limit || 50;
+    const skip = (page - 1) * limit;
+
+    // 查询消息总数
+    const total = await this.prismaService.client.chatMessage.count({
+      where: { sessionId },
+    });
+
+    // 查询消息列表，按时间升序排列
+    const messages = await this.prismaService.client.chatMessage.findMany({
+      where: { sessionId },
+      orderBy: { createdAt: "asc" },
+      skip,
+      take: limit,
+    });
+
+    // 转换为DTO
+    const items: ChatMessageDto[] = messages.map((message) => ({
+      id: message.id,
+      role: message.role,
+      content: message.content,
+      message_type: message.userMessageType as MessageType,
+      audio_file_path: message.audioFilePath ?? undefined,
+      image_file_path: message.imageFilePath ?? undefined,
+      createdAt: message.createdAt.toISOString(),
+    }));
+
+    return {
+      items,
+      total,
+      page,
+      limit,
+      hasNextPage: skip + limit < total,
+    };
+  }
+
+  /**
+   * 发送消息（支持流式响应）
+   */
+  async sendMessage(
+    userId: string,
+    sessionId: string,
+    data: SendMessageDto,
+  ): Promise<{
+    userMessage: ChatMessageDto;
+    generateAssistantResponse: (
+      callback: (chunk: string) => Promise<void>,
+    ) => Promise<void>;
+  }> {
+    // 验证会话是否存在且属于当前用户
+    const session = await this.prismaService.client.chatSession.findUnique({
+      where: {
+        id: sessionId,
+        userId,
+      },
+    });
+
+    if (!session) {
+      throw new HttpException("Chat session not found", HttpStatus.NOT_FOUND);
+    }
+
+    // 创建用户消息
+    const userMessage = await this.prismaService.client.chatMessage.create({
+      data: {
+        sessionId,
+        role: "user",
+        content: data.content,
+        userMessageType: data.message_type,
+        audioFilePath: data.audio_file_path,
+        imageFilePath: data.image_file_path,
+      },
+    });
+
+    // 更新会话的最后消息时间和消息数量
+    await this.prismaService.client.chatSession.update({
+      where: { id: sessionId },
+      data: {
+        lastMessageAt: new Date(),
+        messageCount: { increment: 1 },
+      },
+    });
+
+    // 转换用户消息为DTO
+    const userMessageDto: ChatMessageDto = {
+      id: userMessage.id,
+      role: userMessage.role,
+      content: userMessage.content,
+      message_type: userMessage.userMessageType as MessageType,
+      audio_file_path: userMessage.audioFilePath ?? undefined,
+      image_file_path: userMessage.imageFilePath ?? undefined,
+      createdAt: userMessage.createdAt.toISOString(),
+    };
+
+    // 生成助手响应的函数（用于流式返回）
+    const generateAssistantResponse = async (
+      callback: (chunk: string) => Promise<void>,
+    ): Promise<void> => {
+      // 这里是一个模拟的流式响应生成过程
+      // 在实际应用中，这里应该调用LLM服务来生成回复
+      const mockResponse =
+        "这是一个模拟的助手回复。在实际应用中，这里会通过LLM生成智能回复内容。";
+
+      // 模拟流式输出
+      let accumulatedResponse = "";
+      for (let i = 0; i < mockResponse.length; i += 10) {
+        const chunk = mockResponse.slice(i, i + 10);
+        accumulatedResponse += chunk;
+        await callback(chunk);
+        // 模拟流式输出的延迟
+        await new Promise((resolve) => setTimeout(resolve, 100));
+      }
+
+      // 保存助手回复到数据库
+      await this.prismaService.client.chatMessage.create({
+        data: {
+          sessionId,
+          role: "assistant",
+          content: accumulatedResponse,
+        },
+      });
+    };
+
+    return {
+      userMessage: userMessageDto,
+      generateAssistantResponse,
+    };
   }
 }
