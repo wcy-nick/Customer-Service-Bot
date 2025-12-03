@@ -7,4 +7,7 @@ async function bootstrap() {
   const configService = app.get(ConfigService);
   await app.listen(configService.get<number>("PORT") ?? 3001);
 }
-bootstrap();
+bootstrap().catch((error) => {
+  console.error("Error starting application:", error);
+  process.exit(1);
+});

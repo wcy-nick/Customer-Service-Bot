@@ -25,22 +25,24 @@ export class AuthController {
 
   @Post("refresh")
   async refreshToken(
-    @Body() refreshData: RefreshTokenRequest,
+    @Body() refreshData: Partial<RefreshTokenRequest> | null | undefined,
   ): Promise<RefreshTokenResponse> {
-    if (!refreshData.refresh_token) {
+    if (!refreshData?.refresh_token) {
       throw new UnauthorizedException("Refresh token is required");
     }
     return this.authService.refreshToken(refreshData.refresh_token);
   }
 
   @Post("logout")
-  async logout(@Headers("Authorization") authorization: string): Promise<void> {
+  async logout(
+    @Headers("Authorization") authorization: string | null | undefined,
+  ): Promise<void> {
     if (!authorization) {
       throw new UnauthorizedException("Authorization header is required");
     }
 
     const tokenMatch = authorization.match(/^Bearer\s+(.*)$/);
-    if (!tokenMatch) {
+    if (!tokenMatch || !tokenMatch[1]) {
       throw new UnauthorizedException("Invalid authorization header format");
     }
 
