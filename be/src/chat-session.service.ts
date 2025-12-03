@@ -13,10 +13,22 @@ import {
   MessageType,
   MessageFeedbackDto,
 } from "./types/chat-session";
-
+import { HumanMessage } from "@langchain/core/messages";
+import { StringOutputParser } from "@langchain/core/output_parsers";
+import { ChatZhipuAI } from "@langchain/community/chat_models/zhipuai";
 @Injectable()
 export class ChatSessionService {
   constructor(private readonly prismaService: PrismaService) {}
+
+  static createChatModel(): ChatZhipuAI {
+    if (!process.env.ZHIPU_API_KEY) {
+      throw new Error("ZHIPU_API_KEY is not set");
+    }
+    return new ChatZhipuAI({
+      apiKey: process.env.ZHIPU_API_KEY,
+      model: "glm-4",
+    });
+  }
 
   /**
    * 获取用户的聊天会话列表（带分页）
@@ -320,29 +332,52 @@ export class ChatSessionService {
     const generateAssistantResponse = async (
       callback: (chunk: string) => Promise<void>,
     ): Promise<void> => {
-      // 这里是一个模拟的流式响应生成过程
-      // 在实际应用中，这里应该调用LLM服务来生成回复
-      const mockResponse =
-        "这是一个模拟的助手回复。在实际应用中，这里会通过LLM生成智能回复内容。";
+      try {
+        // 创建LLM模型实例
+        const model = ChatSessionService.createChatModel();
 
-      // 模拟流式输出
-      let accumulatedResponse = "";
-      for (let i = 0; i < mockResponse.length; i += 10) {
-        const chunk = mockResponse.slice(i, i + 10);
-        accumulatedResponse += chunk;
-        await callback(chunk);
-        // 模拟流式输出的延迟
-        await new Promise((resolve) => setTimeout(resolve, 100));
+        // 使用StringOutputParser来处理模型输出
+        const parser = new StringOutputParser();
+
+        // 构建消息链
+        const chain = model.pipe(parser);
+
+        // 准备用户消息
+        const messages = [new HumanMessage(data.content)];
+
+        // 流式获取响应
+        const accumulatedResponse: string[] = [];
+        const stream = await chain.stream(messages);
+
+        // 处理流中的每个块
+        for await (const chunk of stream) {
+          accumulatedResponse.push(chunk);
+          await callback(chunk);
+        }
+
+        // 保存助手回复到数据库
+        await this.prismaService.client.chatMessage.create({
+          data: {
+            sessionId,
+            role: "assistant",
+            content: accumulatedResponse.join(""),
+          },
+        });
+      } catch (error) {
+        console.error("Error generating assistant response:", error);
+        // 生成错误回复
+        const errorMessage = "抱歉，生成回复时出现了错误。请稍后重试。";
+        await callback(errorMessage);
+
+        // 保存错误回复到数据库
+        await this.prismaService.client.chatMessage.create({
+          data: {
+            sessionId,
+            role: "assistant",
+            content: errorMessage,
+          },
+        });
       }
-
-      // 保存助手回复到数据库
-      await this.prismaService.client.chatMessage.create({
-        data: {
-          sessionId,
-          role: "assistant",
-          content: accumulatedResponse,
-        },
-      });
     };
 
     return {
