@@ -310,3 +310,41 @@ export interface UnansweredQuestionsQuery extends AnalyticsDateQuery {
   page?: number;
   limit?: number;
 }
+
+// 同步作业相关接口
+export interface SyncJobDto {
+  id: string;
+  source_type: string;
+  status: string;
+  sync_type: "full" | "incremental";
+  job_type: string;
+  created_at: Date;
+  started_at?: Date;
+  completed_at?: Date;
+  progress?: number;
+  total_items?: number;
+  processed_items?: number;
+}
+
+export interface SyncJobDetailDto extends SyncJobDto {
+  logs?: string[];
+  error_message?: string;
+  job_config?: any;
+}
+
+export interface SyncJobsQuery {
+  source_type?: string;
+  status?: string;
+  page?: number;
+  limit?: number;
+}
+
+export interface DouyinKnowledgeSyncInput {
+  sync_type: "full" | "incremental";
+  force?: boolean;
+}
+
+export interface SyncJobResponse {
+  job_id: string;
+  status: string;
+}

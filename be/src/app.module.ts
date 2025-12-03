@@ -23,6 +23,8 @@ import { SearchController } from "./search.controller";
 import { SearchService } from "./search.service";
 import { AnalyticsController } from "./analytics.controller";
 import { AnalyticsService } from "./analytics.service";
+import { SyncController } from "./sync.controller";
+import { SyncService } from "./sync.service";
 
 @Module({
   imports: [],
@@ -38,6 +40,7 @@ import { AnalyticsService } from "./analytics.service";
     MessagesController,
     SearchController,
     AnalyticsController,
+    SyncController,
   ],
   providers: [
     AppService,
@@ -53,6 +56,7 @@ import { AnalyticsService } from "./analytics.service";
     ChatSessionService,
     SearchService,
     AnalyticsService,
+    SyncService,
   ],
 })
 export class AppModule {}
