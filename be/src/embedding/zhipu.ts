@@ -29,20 +29,12 @@ export class ZhipuEmbedding {
     });
   }
 
-  async embed(texts: string[]): Promise<number[][]> {
-    console.log(
-      `Embedding ${texts.length} text(s), first text preview:`,
-      texts[0]?.substring(0, 50) + "...",
-    );
+  async embedDocuments(texts: string[]): Promise<number[][]> {
     const embeddings = await this.embeddings.embedDocuments(texts);
     return embeddings;
   }
 
-  async embedOne(text: string): Promise<number[]> {
-    console.log(
-      "Embedding single text, preview:",
-      text.substring(0, 50) + "...",
-    );
+  async embedQuery(text: string): Promise<number[]> {
     const embedding = await this.embeddings.embedQuery(text);
     return embedding;
   }

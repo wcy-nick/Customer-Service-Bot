@@ -1,5 +1,6 @@
 import { Injectable, HttpException, HttpStatus } from "@nestjs/common";
 import { PrismaService } from "./prisma.service";
+import { QdrantService } from "./qdrant.service";
 import {
   ChatSessionDto,
   ChatSessionDetailDto,
@@ -18,7 +19,10 @@ import { StringOutputParser } from "@langchain/core/output_parsers";
 import { ChatZhipuAI } from "@langchain/community/chat_models/zhipuai";
 @Injectable()
 export class ChatSessionService {
-  constructor(private readonly prismaService: PrismaService) {}
+  constructor(
+    private readonly prismaService: PrismaService,
+    private readonly qdrantService: QdrantService,
+  ) {}
 
   static createChatModel(): ChatZhipuAI {
     if (!process.env.ZHIPU_API_KEY) {
@@ -342,8 +346,21 @@ export class ChatSessionService {
         // 构建消息链
         const chain = model.pipe(parser);
 
+        // RAG过程：获取与用户查询相关的上下文
+        const context = await this.qdrantService.buildContext(data.content);
+
+        // 拼接适合RAG的prompt
+        const prompt = `基于以下上下文信息回答用户问题：
+
+上下文信息：
+${context}
+
+用户问题：${data.content}
+
+请根据上下文信息进行回答，如果上下文信息不足，请明确说明`;
+
         // 准备用户消息
-        const messages = [new HumanMessage(data.content)];
+        const messages = [new HumanMessage(prompt)];
 
         // 流式获取响应
         const accumulatedResponse: string[] = [];
