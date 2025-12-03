@@ -208,3 +208,105 @@ export interface TokenPayload {
   username: string;
   email: string;
 }
+
+// 分析相关接口
+export interface DashboardOverviewDto {
+  total_sessions: number;
+  total_messages: number;
+  total_users: number;
+  average_session_duration: number;
+  satisfaction_score: number;
+  trend_data: {
+    date: string;
+    sessions: number;
+    messages: number;
+  }[];
+}
+
+export interface KnowledgeHeatmapItemDto {
+  knowledge_id: string;
+  knowledge_title: string;
+  business_category_id: string;
+  business_category_name: string;
+  access_count: number;
+  relevance_score: number;
+  last_accessed: Date;
+}
+
+export interface FrequentQuestionDto {
+  question: string;
+  frequency: number;
+  business_category_id?: string;
+  business_category_name?: string;
+  first_occurrence: Date;
+  last_occurrence: Date;
+}
+
+export interface UnansweredQuestionDto {
+  id: string;
+  question: string;
+  user_id: string;
+  user_name?: string;
+  session_id: string;
+  created_at: Date;
+  is_resolved: boolean;
+  resolved_at?: Date;
+  resolved_by?: string;
+  related_document_id?: string;
+  related_document_title?: string;
+}
+
+export interface ResolveUnansweredQuestionInput {
+  document_id?: string;
+}
+
+export interface AnalyticsDateQuery {
+  start_date?: string;
+  end_date?: string;
+}
+
+export interface DashboardQuery extends AnalyticsDateQuery {
+  period?: "day" | "week" | "month";
+}
+
+export interface KnowledgeHeatmapQuery extends AnalyticsDateQuery {
+  business_category_id?: string;
+  limit?: number;
+}
+
+export interface FrequentQuestionsQuery extends AnalyticsDateQuery {
+  limit?: number;
+}
+
+export interface UsageTrendsQuery extends AnalyticsDateQuery {
+  metric: "sessions" | "messages" | "documents_viewed" | "user_satisfaction";
+  group_by: "day" | "week" | "month";
+}
+
+export interface UsageTrendDto {
+  date: string;
+  value: number;
+  metric: string;
+}
+
+export interface UserActivityQuery extends AnalyticsDateQuery {
+  user_id?: string;
+  page?: number;
+  limit?: number;
+}
+
+export interface UserActivityDto {
+  id: string;
+  user_id: string;
+  user_name: string;
+  type: "message" | "session" | "document_view" | "feedback";
+  description: string;
+  timestamp: Date;
+  related_id?: string;
+}
+
+export interface UnansweredQuestionsQuery extends AnalyticsDateQuery {
+  is_resolved?: boolean;
+  page?: number;
+  limit?: number;
+}
