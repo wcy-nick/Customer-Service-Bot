@@ -3,11 +3,8 @@ import { ConfigModule } from "@nestjs/config";
 import { AppController } from "./app.controller";
 import { AppService } from "./app.service";
 import { PrismaService } from "./prisma.service";
-import { AuthController } from "./auth.controller";
-import { AuthService } from "./auth.service";
 import { UserController } from "./user.controller";
 import { UserService } from "./user.service";
-import { AuthGuard } from "./auth.guard";
 import { BusinessCategoryController } from "./business-category.controller";
 import { BusinessCategoryService } from "./business-category.service";
 import { ScenarioController } from "./scenario.controller";
@@ -27,6 +24,7 @@ import { AnalyticsService } from "./analytics.service";
 import { SyncController } from "./sync.controller";
 import { SyncService } from "./sync.service";
 import { EmbeddingModule } from "./embedding/embedding.module";
+import { AuthModule } from "./auth/auth.module";
 
 @Module({
   imports: [
@@ -35,10 +33,10 @@ import { EmbeddingModule } from "./embedding/embedding.module";
       envFilePath: [".env.local", ".env"],
     }),
     EmbeddingModule,
+    AuthModule,
   ],
   controllers: [
     AppController,
-    AuthController,
     UserController,
     BusinessCategoryController,
     ScenarioController,
@@ -53,9 +51,7 @@ import { EmbeddingModule } from "./embedding/embedding.module";
   providers: [
     AppService,
     PrismaService,
-    AuthService,
     UserService,
-    AuthGuard,
     BusinessCategoryService,
     ScenarioService,
     QdrantService,

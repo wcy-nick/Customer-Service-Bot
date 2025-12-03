@@ -6,7 +6,7 @@ import {
   Request,
   UseGuards,
 } from "@nestjs/common";
-import { AuthGuard } from "./auth.guard";
+import { JwtAuthGuard } from "./auth/jwt-auth.guard";
 import { ChatSessionService } from "./chat-session.service";
 import type { MessageFeedbackDto } from "./types/chat-session";
 import {
@@ -19,7 +19,7 @@ import {
 
 @ApiTags("messages")
 @Controller("api/chat/messages")
-@UseGuards(AuthGuard)
+@UseGuards(JwtAuthGuard)
 export class MessagesController {
   constructor(private readonly chatSessionService: ChatSessionService) {}
 

@@ -15,7 +15,7 @@ import type {
   SyncJobResponse,
   PaginatedResponse,
 } from "./types/types";
-import { AuthGuard } from "./auth.guard";
+import { JwtAuthGuard } from "./auth/jwt-auth.guard";
 import {
   ApiTags,
   ApiOperation,
@@ -27,7 +27,7 @@ import {
 
 @ApiTags("sync")
 @Controller("api/sync")
-@UseGuards(AuthGuard)
+@UseGuards(JwtAuthGuard)
 export class SyncController {
   constructor(private readonly syncService: SyncService) {}
 

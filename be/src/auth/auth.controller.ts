@@ -4,6 +4,8 @@ import {
   Body,
   Headers,
   UnauthorizedException,
+  Request,
+  UseGuards,
 } from "@nestjs/common";
 import {
   ApiTags,
@@ -13,13 +15,14 @@ import {
   ApiHeader,
 } from "@nestjs/swagger";
 import { AuthService } from "./auth.service";
+import { LocalAuthGuard } from "./local-auth.guard";
 import type {
-  LoginUserInput,
   RefreshTokenRequest,
   LoginResponse,
   RefreshTokenResponse,
   RegisterUserInput,
-} from "./types/types";
+} from "../types/types";
+import { User } from "../types/types";
 
 @ApiTags("auth")
 @Controller("api/auth")
@@ -73,9 +76,10 @@ export class AuthController {
     },
   })
   @ApiResponse({ status: 401, description: "Invalid credentials" })
+  @UseGuards(LocalAuthGuard)
   @Post("login")
-  async login(@Body() loginData: LoginUserInput): Promise<LoginResponse> {
-    return this.authService.login(loginData);
+  async login(@Request() req: { user: User }): Promise<LoginResponse> {
+    return this.authService.loginWithUser(req.user);
   }
 
   @ApiOperation({ summary: "Refresh access token" })

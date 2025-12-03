@@ -2,17 +2,15 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { AuthController } from "./auth.controller";
 import { AuthService } from "./auth.service";
 import { UnauthorizedException } from "@nestjs/common";
-import type {
-  LoginUserInput,
-  RefreshTokenRequest,
-  RegisterUserInput,
-} from "./types/types";
+import type { RefreshTokenRequest, RegisterUserInput } from "../types/types";
+import { User } from "../types/types";
 
 describe("AuthController", () => {
   let authController: AuthController;
 
   // 创建模拟方法的引用变量
   let mockLogin: jest.Mock;
+  let mockLoginWithUser: jest.Mock;
   let mockRefreshToken: jest.Mock;
   let mockLogout: jest.Mock;
   let mockRegister: jest.Mock;
@@ -20,6 +18,7 @@ describe("AuthController", () => {
   beforeEach(async () => {
     // 初始化模拟方法
     mockLogin = jest.fn();
+    mockLoginWithUser = jest.fn();
     mockRefreshToken = jest.fn();
     mockLogout = jest.fn();
     mockRegister = jest.fn();
@@ -27,6 +26,7 @@ describe("AuthController", () => {
     // 模拟AuthService
     const mockAuthService = {
       login: mockLogin,
+      loginWithUser: mockLoginWithUser,
       refreshToken: mockRefreshToken,
       logout: mockLogout,
       register: mockRegister,
@@ -48,9 +48,22 @@ describe("AuthController", () => {
   describe("login", () => {
     it("should login successfully", async () => {
       // Arrange
-      const loginData: LoginUserInput = {
+      const mockUser: User = {
+        id: "user-1",
         username: "testuser",
-        password: "password123",
+        email: "test@example.com",
+        displayName: "Test User",
+        role: "user",
+        passwordHash: "$2b$10$mockpasswordhash",
+        isActive: true,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        avatarUrl: null,
+        lastLoginAt: new Date(),
+      };
+
+      const mockRequest = {
+        user: mockUser,
       };
 
       const mockResponse = {
@@ -65,13 +78,13 @@ describe("AuthController", () => {
         },
       };
 
-      mockLogin.mockResolvedValue(mockResponse);
+      mockLoginWithUser.mockResolvedValue(mockResponse);
 
       // Act
-      const result = await authController.login(loginData);
+      const result = await authController.login(mockRequest);
 
       // Assert
-      expect(mockLogin).toHaveBeenCalledWith(loginData);
+      expect(mockLoginWithUser).toHaveBeenCalledWith(mockRequest.user);
       expect(result).toEqual(mockResponse);
     });
   });

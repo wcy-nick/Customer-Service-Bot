@@ -53,6 +53,20 @@ export interface UpdateScenarioInput {
 }
 
 // 用户相关接口
+export interface User {
+  id: string;
+  username: string;
+  email: string;
+  passwordHash: string;
+  displayName: string | null;
+  avatarUrl: string | null;
+  role: string;
+  isActive: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+  lastLoginAt: Date | null;
+}
+
 export interface UserDto {
   id: string;
   username: string;

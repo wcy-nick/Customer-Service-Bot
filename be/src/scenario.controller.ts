@@ -15,7 +15,7 @@ import {
   ApiBody,
   ApiParam,
 } from "@nestjs/swagger";
-import { AuthGuard } from "./auth.guard";
+import { JwtAuthGuard } from "./auth/jwt-auth.guard";
 import { ScenarioService } from "./scenario.service";
 import type {
   ScenarioCategoryDto,
@@ -80,7 +80,7 @@ export class ScenarioController {
   @ApiResponse({ status: 401, description: "未授权" })
   @ApiResponse({ status: 404, description: "业务分类不存在" })
   @Post("business-categories/:businessId/scenarios")
-  @UseGuards(AuthGuard)
+  @UseGuards(JwtAuthGuard)
   async createScenario(
     @Param("businessId") businessId: string,
     @Body() body: CreateScenarioInput,
@@ -142,7 +142,7 @@ export class ScenarioController {
   @ApiResponse({ status: 401, description: "未授权" })
   @ApiResponse({ status: 404, description: "场景分类不存在" })
   @Put("scenarios/:id")
-  @UseGuards(AuthGuard)
+  @UseGuards(JwtAuthGuard)
   async updateScenario(
     @Param("id") id: string,
     @Body() body: UpdateScenarioInput,
@@ -156,7 +156,7 @@ export class ScenarioController {
   @ApiResponse({ status: 401, description: "未授权" })
   @ApiResponse({ status: 404, description: "场景分类不存在" })
   @Delete("scenarios/:id")
-  @UseGuards(AuthGuard)
+  @UseGuards(JwtAuthGuard)
   async deleteScenario(@Param("id") id: string): Promise<void> {
     return this.scenarioService.deleteScenario(id);
   }

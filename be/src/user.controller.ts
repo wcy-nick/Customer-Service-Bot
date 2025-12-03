@@ -17,7 +17,7 @@ import {
   ApiParam,
 } from "@nestjs/swagger";
 import { UserService } from "./user.service";
-import { AuthGuard } from "./auth.guard";
+import { JwtAuthGuard } from "./auth/jwt-auth.guard";
 import type {
   UserDto,
   UpdateProfileInput,
@@ -60,7 +60,7 @@ export class UserController {
     },
   })
   @ApiResponse({ status: 401, description: "未授权" })
-  @UseGuards(AuthGuard)
+  @UseGuards(JwtAuthGuard)
   @Get("profile")
   async getProfile(@Req() req: { user: { id: string } }): Promise<UserDto> {
     const userId = req.user.id;
@@ -106,7 +106,7 @@ export class UserController {
     },
   })
   @ApiResponse({ status: 401, description: "未授权" })
-  @UseGuards(AuthGuard)
+  @UseGuards(JwtAuthGuard)
   @Put("profile")
   async updateProfile(
     @Req() req: { user: { id: string } },
@@ -188,7 +188,7 @@ export class UserController {
     },
   })
   @ApiResponse({ status: 401, description: "未授权" })
-  @UseGuards(AuthGuard)
+  @UseGuards(JwtAuthGuard)
   @Get()
   async getUsers(
     @Query() query: GetUsersQuery,
@@ -242,7 +242,7 @@ export class UserController {
   @ApiResponse({ status: 401, description: "未授权" })
   @ApiResponse({ status: 403, description: "权限不足" })
   @ApiResponse({ status: 404, description: "用户不存在" })
-  @UseGuards(AuthGuard)
+  @UseGuards(JwtAuthGuard)
   @Put("role/:userId")
   async updateUserRole(
     @Req() req: { user: { id: string } },

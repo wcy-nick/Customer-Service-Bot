@@ -24,7 +24,7 @@ import type {
   UserActivityQuery,
   UserActivityDto,
 } from "./types/types";
-import { AuthGuard } from "./auth.guard";
+import { JwtAuthGuard } from "./auth/jwt-auth.guard";
 import {
   ApiTags,
   ApiOperation,
@@ -36,7 +36,7 @@ import {
 
 @ApiTags("analytics")
 @Controller("api/analytics")
-@UseGuards(AuthGuard)
+@UseGuards(JwtAuthGuard)
 export class AnalyticsController {
   constructor(private readonly analyticsService: AnalyticsService) {}
 

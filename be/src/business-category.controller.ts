@@ -18,7 +18,7 @@ import {
   ApiQuery,
   ApiParam,
 } from "@nestjs/swagger";
-import { AuthGuard } from "./auth.guard";
+import { JwtAuthGuard } from "./auth/jwt-auth.guard";
 import { BusinessCategoryService } from "./business-category.service";
 import type {
   BusinessCategoryDto,
@@ -135,7 +135,7 @@ export class BusinessCategoryController {
   })
   @ApiResponse({ status: 401, description: "未授权" })
   @Post()
-  @UseGuards(AuthGuard)
+  @UseGuards(JwtAuthGuard)
   async createBusinessCategory(
     @Req() req: { user: { id: string } },
     @Body() body: CreateBusinessCategoryInput,
@@ -196,7 +196,7 @@ export class BusinessCategoryController {
   @ApiResponse({ status: 401, description: "未授权" })
   @ApiResponse({ status: 404, description: "业务分类不存在" })
   @Put(":id")
-  @UseGuards(AuthGuard)
+  @UseGuards(JwtAuthGuard)
   async updateBusinessCategory(
     @Param("id") id: string,
     @Body() body: UpdateBusinessCategoryInput,
@@ -210,7 +210,7 @@ export class BusinessCategoryController {
   @ApiResponse({ status: 401, description: "未授权" })
   @ApiResponse({ status: 404, description: "业务分类不存在" })
   @Delete(":id")
-  @UseGuards(AuthGuard)
+  @UseGuards(JwtAuthGuard)
   async deleteBusinessCategory(@Param("id") id: string): Promise<void> {
     return this.businessCategoryService.deleteBusinessCategory(id);
   }

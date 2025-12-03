@@ -3,19 +3,27 @@ import {
   UnauthorizedException,
   ConflictException,
 } from "@nestjs/common";
-import { PrismaService } from "./prisma.service";
+import { PrismaService } from "../prisma.service";
 import * as bcrypt from "bcrypt";
-import * as jwt from "jsonwebtoken";
+import { JwtService } from "@nestjs/jwt";
 import {
   RegisterUserInput,
   LoginUserInput,
   UserDto,
   TokenPayload,
-} from "./types/types";
+  User,
+} from "../types/types";
 
 @Injectable()
 export class AuthService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prismaService: PrismaService,
+    private readonly jwtService: JwtService,
+  ) {}
+
+  private get prisma() {
+    return this.prismaService.client;
+  }
 
   private async hashPassword(password: string): Promise<string> {
     const salt = await bcrypt.genSalt(10);
@@ -29,20 +37,29 @@ export class AuthService {
     return bcrypt.compare(plainPassword, hashedPassword);
   }
 
+  async validateUser(username: string, password: string): Promise<User | null> {
+    const user = await this.prisma.user.findUnique({
+      where: { username },
+    });
+
+    if (user && (await this.comparePasswords(password, user.passwordHash))) {
+      return user;
+    }
+
+    return null;
+  }
+
   private generateAccessToken(payload: TokenPayload): string {
-    return jwt.sign(payload, process.env.JWT_SECRET || "your-secret-key", {
+    return this.jwtService.sign(payload, {
       expiresIn: "15m",
     });
   }
 
   private generateRefreshToken(payload: TokenPayload): string {
-    return jwt.sign(
-      payload,
-      process.env.JWT_REFRESH_SECRET || "your-refresh-secret-key",
-      {
-        expiresIn: "7d",
-      },
-    );
+    return this.jwtService.sign(payload, {
+      secret: process.env.JWT_REFRESH_SECRET || "your-refresh-secret-key",
+      expiresIn: "7d",
+    });
   }
 
   private async createUserSession(
@@ -52,7 +69,7 @@ export class AuthService {
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + 7); // 7天过期
 
-    await this.prisma.client.userSession.create({
+    await this.prisma.userSession.create({
       data: {
         userId,
         tokenHash,
@@ -68,7 +85,7 @@ export class AuthService {
 
   async register(input: RegisterUserInput): Promise<UserDto> {
     // 检查用户名是否已存在
-    const existingUser = await this.prisma.client.user.findFirst({
+    const existingUser = await this.prisma.user.findFirst({
       where: {
         OR: [{ username: input.username }, { email: input.email }],
       },
@@ -82,14 +99,14 @@ export class AuthService {
     }
 
     // 加密密码
-    const passwordHash = await this.hashPassword(input.password);
+    const hashedPassword = await this.hashPassword(input.password);
 
     // 创建用户
-    const user = await this.prisma.client.user.create({
+    const user = await this.prisma.user.create({
       data: {
         username: input.username,
         email: input.email,
-        passwordHash,
+        passwordHash: hashedPassword,
         displayName: input.display_name,
         role: "user",
       },
@@ -110,15 +127,9 @@ export class AuthService {
     refresh_token: string;
     user: UserDto;
   }> {
-    // 查找用户
-    const user = await this.prisma.client.user.findUnique({
-      where: { username: input.username },
-    });
-
-    if (
-      !user ||
-      !(await this.comparePasswords(input.password, user.passwordHash))
-    ) {
+    // 使用validateUser方法验证用户
+    const user = await this.validateUser(input.username, input.password);
+    if (!user) {
       throw new UnauthorizedException("用户名或密码错误");
     }
 
@@ -127,8 +138,16 @@ export class AuthService {
       throw new UnauthorizedException("用户账号已被禁用");
     }
 
+    return this.loginWithUser(user);
+  }
+
+  async loginWithUser(user: User): Promise<{
+    access_token: string;
+    refresh_token: string;
+    user: UserDto;
+  }> {
     // 更新最后登录时间
-    await this.prisma.client.user.update({
+    await this.prisma.user.update({
       where: { id: user.id },
       data: { lastLoginAt: new Date() },
     });
@@ -164,13 +183,12 @@ export class AuthService {
   async refreshToken(refreshToken: string): Promise<{ access_token: string }> {
     try {
       // 验证refresh token
-      const payload = jwt.verify(
-        refreshToken,
-        process.env.JWT_REFRESH_SECRET || "your-refresh-secret-key",
-      ) as TokenPayload;
+      const payload = this.jwtService.verify<TokenPayload>(refreshToken, {
+        secret: process.env.JWT_REFRESH_SECRET || "your-refresh-secret-key",
+      });
 
       // 查找用户session
-      const userSessions = await this.prisma.client.userSession.findMany({
+      const userSessions = await this.prisma.userSession.findMany({
         where: { userId: payload.userId },
       });
 
@@ -203,38 +221,15 @@ export class AuthService {
   async logout(token: string): Promise<void> {
     try {
       // 验证token并获取用户信息
-      const payload = jwt.verify(
-        token,
-        process.env.JWT_SECRET || "your-secret-key",
-      ) as TokenPayload;
+      const payload = this.jwtService.verify<TokenPayload>(token);
 
       // 可以选择在这里删除所有用户的session
       // 或者实现更精细的token管理
-      await this.prisma.client.userSession.deleteMany({
+      await this.prisma.userSession.deleteMany({
         where: { userId: payload.userId },
       });
     } catch {
       // 即使token无效，也返回成功，以防止信息泄露
-      return;
     }
-  }
-
-  async validateUserById(userId: string): Promise<UserDto | null> {
-    const user = await this.prisma.client.user.findUnique({
-      where: { id: userId },
-    });
-
-    if (!user || !user.isActive) {
-      return null;
-    }
-
-    return {
-      id: user.id,
-      username: user.username,
-      email: user.email,
-      display_name: user.displayName ?? undefined,
-      avatar_url: user.avatarUrl ?? undefined,
-      role: user.role,
-    };
   }
 }

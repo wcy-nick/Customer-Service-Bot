@@ -1,17 +1,16 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { UnauthorizedException, ConflictException } from "@nestjs/common";
 import { AuthService } from "./auth.service";
-import { PrismaService } from "./prisma.service";
+import { PrismaService } from "../prisma.service";
+import { JwtService } from "@nestjs/jwt";
 import * as bcrypt from "bcrypt";
-import * as jwt from "jsonwebtoken";
 
-// Mock the bcrypt and jwt modules
+// Mock the bcrypt module
 jest.mock("bcrypt", () => ({
   hash: jest.fn().mockResolvedValue("hashedPassword"),
   compare: jest.fn().mockResolvedValue(true),
   genSalt: jest.fn().mockResolvedValue("test-salt"),
 }));
-jest.mock("jsonwebtoken");
 
 describe("AuthService", () => {
   let authService: AuthService;
@@ -28,6 +27,7 @@ describe("AuthService", () => {
   let mockBcryptCompare: jest.Mock;
   let mockBcryptGenSalt: jest.Mock;
   let mockJwtSign: jest.Mock;
+  let mockJwtVerify: jest.Mock;
 
   beforeEach(async () => {
     // 初始化模拟方法
@@ -42,14 +42,12 @@ describe("AuthService", () => {
     mockBcryptCompare = jest.fn();
     mockBcryptGenSalt = jest.fn();
     mockJwtSign = jest.fn();
+    mockJwtVerify = jest.fn();
 
     // Mock bcrypt
     (bcrypt.hash as jest.Mock).mockImplementation(mockBcryptHash);
     (bcrypt.compare as jest.Mock).mockImplementation(mockBcryptCompare);
     (bcrypt.genSalt as jest.Mock).mockImplementation(mockBcryptGenSalt);
-
-    // Mock jwt
-    (jwt.sign as jest.Mock).mockImplementation(mockJwtSign);
 
     // Mock PrismaService
     const mockPrismaService = {
@@ -68,12 +66,22 @@ describe("AuthService", () => {
       },
     } as unknown as PrismaService;
 
+    // Mock JwtService
+    const mockJwtService = {
+      sign: mockJwtSign,
+      verify: mockJwtVerify,
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AuthService,
         {
           provide: PrismaService,
           useValue: mockPrismaService,
+        },
+        {
+          provide: JwtService,
+          useValue: mockJwtService,
         },
       ],
     }).compile();
@@ -327,30 +335,15 @@ describe("AuthService", () => {
       expect(mockJwtSign).toHaveBeenCalledTimes(2); // 只计算当前测试中的调用
 
       // 检查第一个调用（access token）
-      expect(mockJwtSign).toHaveBeenNthCalledWith(
-        1,
-        {
-          id: user.id,
-          username: user.username,
-          email: user.email,
-          role: user.role,
-        },
-        process.env.JWT_SECRET || "your-secret-key",
-        { expiresIn: "15m" },
-      );
+      expect(mockJwtSign).toHaveBeenNthCalledWith(1, user, {
+        expiresIn: "15m",
+      });
 
       // 检查第二个调用（refresh token）
-      expect(mockJwtSign).toHaveBeenNthCalledWith(
-        2,
-        {
-          id: user.id,
-          username: user.username,
-          email: user.email,
-          role: user.role,
-        },
-        process.env.JWT_REFRESH_SECRET || "your-refresh-secret-key",
-        { expiresIn: "7d" },
-      );
+      expect(mockJwtSign).toHaveBeenNthCalledWith(2, user, {
+        secret: process.env.JWT_REFRESH_SECRET || "your-refresh-secret-key",
+        expiresIn: "7d",
+      });
     });
   });
 
