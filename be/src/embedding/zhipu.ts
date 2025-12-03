@@ -1,12 +1,15 @@
+import { Injectable } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
 import { ZhipuAIEmbeddings } from "@langchain/community/embeddings/zhipuai";
-import config from "../config.js";
 
-export class ZhipuEmbedding {
+@Injectable()
+export class ZhipuEmbeddingService {
   private embeddings: ZhipuAIEmbeddings;
 
-  constructor(options?: { apiKey?: string; model?: string }) {
-    const apiKey = options?.apiKey || config.zhipuApiKey;
-    const model = options?.model || config.embeddingModel;
+  constructor(private configService: ConfigService) {
+    const apiKey = this.configService.get<string>("ZHIPU_API_KEY");
+    const model =
+      this.configService.get<string>("EMBEDDING_MODEL") || "bge-small-zh";
 
     if (!apiKey) {
       throw new Error("ZHIPU_API_KEY is not set");

@@ -1,4 +1,5 @@
 import { Module } from "@nestjs/common";
+import { ConfigModule } from "@nestjs/config";
 import { AppController } from "./app.controller";
 import { AppService } from "./app.service";
 import { PrismaService } from "./prisma.service";
@@ -25,9 +26,16 @@ import { AnalyticsController } from "./analytics.controller";
 import { AnalyticsService } from "./analytics.service";
 import { SyncController } from "./sync.controller";
 import { SyncService } from "./sync.service";
+import { EmbeddingModule } from "./embedding/embedding.module";
 
 @Module({
-  imports: [],
+  imports: [
+    ConfigModule.forRoot({
+      isGlobal: true,
+      envFilePath: [".env.local", ".env"],
+    }),
+    EmbeddingModule,
+  ],
   controllers: [
     AppController,
     AuthController,

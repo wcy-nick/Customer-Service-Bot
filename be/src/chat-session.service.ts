@@ -1,6 +1,7 @@
 import { Injectable, HttpException, HttpStatus } from "@nestjs/common";
 import { PrismaService } from "./prisma.service";
 import { QdrantService } from "./qdrant.service";
+import { ConfigService } from "@nestjs/config";
 import {
   ChatSessionDto,
   ChatSessionDetailDto,
@@ -22,14 +23,16 @@ export class ChatSessionService {
   constructor(
     private readonly prismaService: PrismaService,
     private readonly qdrantService: QdrantService,
+    private readonly configService: ConfigService,
   ) {}
 
-  static createChatModel(): ChatZhipuAI {
-    if (!process.env.ZHIPU_API_KEY) {
+  createChatModel(): ChatZhipuAI {
+    const apiKey = this.configService.get<string>("ZHIPU_API_KEY");
+    if (!apiKey) {
       throw new Error("ZHIPU_API_KEY is not set");
     }
     return new ChatZhipuAI({
-      apiKey: process.env.ZHIPU_API_KEY,
+      apiKey,
       model: "glm-4",
     });
   }
@@ -338,7 +341,7 @@ export class ChatSessionService {
     ): Promise<void> => {
       try {
         // 创建LLM模型实例
-        const model = ChatSessionService.createChatModel();
+        const model = this.createChatModel();
 
         // 使用StringOutputParser来处理模型输出
         const parser = new StringOutputParser();

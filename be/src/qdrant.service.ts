@@ -1,8 +1,8 @@
 import { Injectable, OnModuleInit } from "@nestjs/common";
 import { QdrantClient } from "@qdrant/js-client-rest";
 import { randomUUID } from "crypto";
-import config from "./config";
-import { ZhipuEmbedding } from "./embedding/zhipu";
+import { ConfigService } from "@nestjs/config";
+import { ZhipuEmbeddingService } from "./embedding/zhipu";
 
 export interface DocumentChunk {
   id: string;
@@ -18,17 +18,21 @@ export interface RetrievedChunk extends DocumentChunk {
 @Injectable()
 export class QdrantService implements OnModuleInit {
   private client: QdrantClient;
-  private embedding: ZhipuEmbedding;
+  private readonly qdrantCollection: string;
 
-  constructor() {
+  constructor(
+    private readonly configService: ConfigService,
+    private readonly embeddingService: ZhipuEmbeddingService,
+  ) {
     this.client = new QdrantClient({
-      url: process.env.QDRANT_URL,
-      host: process.env.QDRANT_HOST,
-      port: Number(process.env.QDRANT_PORT),
-      apiKey: process.env.QDRANT_API_KEY,
+      url: this.configService.get<string>("QDRANT_URL"),
+      host: this.configService.get<string>("QDRANT_HOST"),
+      port: this.configService.get<number>("QDRANT_PORT"),
+      apiKey: this.configService.get<string>("QDRANT_API_KEY"),
     });
 
-    this.embedding = new ZhipuEmbedding();
+    this.qdrantCollection =
+      this.configService.get<string>("QDRANT_COLLECTION") || "documents";
   }
 
   async onModuleInit() {
@@ -36,15 +40,13 @@ export class QdrantService implements OnModuleInit {
   }
 
   async ensureCollection() {
-    const exists = await this.client
-      .getCollection(config.qdrantCollection)
-      .then(
-        () => true,
-        () => false,
-      );
+    const exists = await this.client.getCollection(this.qdrantCollection).then(
+      () => true,
+      () => false,
+    );
 
     if (!exists) {
-      await this.client.createCollection(config.qdrantCollection, {
+      await this.client.createCollection(this.qdrantCollection, {
         vectors: {
           size: 1024,
           distance: "Cosine",
@@ -56,7 +58,7 @@ export class QdrantService implements OnModuleInit {
   async upsertDocuments(documents: DocumentChunk[]): Promise<void> {
     // 使用embed方法获取嵌入向量
     const texts = documents.map((doc) => doc.content);
-    const vectors = await this.embedding.embedDocuments(texts);
+    const vectors = await this.embeddingService.embedDocuments(texts);
 
     // 创建points数组
     const points = documents.map((doc, idx) => ({
@@ -72,7 +74,7 @@ export class QdrantService implements OnModuleInit {
     }));
 
     // 修复Qdrant客户端调用格式
-    await this.client.upsert(config.qdrantCollection, {
+    await this.client.upsert(this.qdrantCollection, {
       wait: true,
       points,
     });
@@ -82,10 +84,10 @@ export class QdrantService implements OnModuleInit {
     query: string,
     limit: number = 5,
   ): Promise<RetrievedChunk[]> {
-    const queryVec = await this.embedding.embedQuery(query);
+    const queryVec = await this.embeddingService.embedQuery(query);
 
     // 修复Qdrant客户端搜索调用格式
-    const results = await this.client.search(config.qdrantCollection, {
+    const results = await this.client.search(this.qdrantCollection, {
       vector: queryVec,
       limit,
     });
