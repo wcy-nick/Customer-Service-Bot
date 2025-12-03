@@ -19,6 +19,8 @@ import { UploadService } from "./upload.service";
 import { ChatSessionController } from "./chat-session.controller";
 import { ChatSessionService } from "./chat-session.service";
 import { MessagesController } from "./messages.controller";
+import { SearchController } from "./search.controller";
+import { SearchService } from "./search.service";
 
 @Module({
   imports: [],
@@ -32,6 +34,7 @@ import { MessagesController } from "./messages.controller";
     UploadController,
     ChatSessionController,
     MessagesController,
+    SearchController,
   ],
   providers: [
     AppService,
@@ -45,6 +48,7 @@ import { MessagesController } from "./messages.controller";
     DocumentService,
     UploadService,
     ChatSessionService,
+    SearchService,
   ],
 })
 export class AppModule {}

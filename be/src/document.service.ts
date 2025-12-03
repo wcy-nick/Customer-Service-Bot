@@ -303,11 +303,7 @@ export class DocumentService {
     const documents = chunks.map((chunk, index) => ({
       id: `${document.id}_chunk_${index}`,
       content: chunk,
-      metadata: {
-        documentId: document.id,
-        title: document.title,
-        chunkIndex: index,
-      },
+      documentId: document.id,
     }));
 
     // 调用QdrantService进行向量存储
@@ -318,10 +314,6 @@ export class DocumentService {
       where: { id },
       data: { isVectorized: true },
     });
-
-    console.log(
-      `Successfully vectorized document: ${id} with ${chunks.length} chunks`,
-    );
   }
 
   async getDocumentVersions(id: string): Promise<DocumentVersionDto[]> {

@@ -4,15 +4,15 @@ import { randomUUID } from "crypto";
 import config from "./config";
 import { ZhipuEmbedding } from "./embedding/zhipuEmbedding";
 
-export interface RetrievedChunk {
-  text: string;
-  score: number;
-}
-
 export interface DocumentChunk {
   id: string;
   content: string;
-  metadata?: Record<string, any>;
+  businessCategoryId?: string;
+  documentId: string;
+}
+
+export interface RetrievedChunk extends DocumentChunk {
+  score: number;
 }
 
 @Injectable()
@@ -54,56 +54,59 @@ export class QdrantService implements OnModuleInit {
   }
 
   async upsertDocuments(documents: DocumentChunk[]): Promise<void> {
-    try {
-      // 使用embed方法获取嵌入向量
-      const texts = documents.map((doc) => doc.content);
-      const vectors = await this.embedding.embed(texts);
+    // 使用embed方法获取嵌入向量
+    const texts = documents.map((doc) => doc.content);
+    const vectors = await this.embedding.embed(texts);
 
-      // 创建points数组
-      const points = documents.map((doc, idx) => ({
-        id: doc.id || randomUUID(),
-        vector: vectors[idx],
-        payload: {
-          text: doc.content,
-          metadata: doc.metadata,
+    // 创建points数组
+    const points = documents.map((doc, idx) => ({
+      id: doc.id || randomUUID(),
+      vector: vectors[idx],
+      payload: {
+        text: doc.content,
+        metadata: {
+          businessCategoryId: doc.businessCategoryId,
+          documentId: doc.documentId,
         },
-      }));
+      },
+    }));
 
-      // 修复Qdrant客户端调用格式
-      await this.client.upsert(config.qdrantCollection, {
-        wait: true,
-        points,
-      });
-    } catch (error) {
-      console.error("Error upserting documents to Qdrant:", error);
-      throw new Error("Failed to upsert documents to Qdrant");
-    }
+    // 修复Qdrant客户端调用格式
+    await this.client.upsert(config.qdrantCollection, {
+      wait: true,
+      points,
+    });
   }
 
   async retrieveRelevantChunks(
     query: string,
     limit: number = 5,
-  ): Promise<DocumentChunk[]> {
-    try {
-      // 使用embedOne方法获取查询向量
-      const queryVec = await this.embedding.embedOne(query);
+  ): Promise<RetrievedChunk[]> {
+    // 使用embedOne方法获取查询向量
+    const queryVec = await this.embedding.embedOne(query);
 
-      // 修复Qdrant客户端搜索调用格式
-      const results = await this.client.search(config.qdrantCollection, {
-        vector: queryVec,
-        limit,
-      });
+    // 修复Qdrant客户端搜索调用格式
+    const results = await this.client.search(config.qdrantCollection, {
+      vector: queryVec,
+      limit,
+    });
 
-      // 转换结果
-      return results.map((result) => ({
+    // 转换结果
+    return results.map((result) => {
+      const metadata = result.payload?.metadata as
+        | {
+            businessCategoryId: string;
+            documentId: string;
+          }
+        | undefined;
+      return {
         id: result.id.toString(),
+        score: result.score,
         content: result.payload?.text as string,
-        metadata: result.payload?.metadata as Record<string, any>,
-      }));
-    } catch (error) {
-      console.error("Error retrieving relevant chunks:", error);
-      throw new Error("Failed to retrieve relevant chunks");
-    }
+        businessCategoryId: metadata?.businessCategoryId || "",
+        documentId: metadata?.documentId || "",
+      };
+    });
   }
 
   async buildContext(query: string, k = 5): Promise<string> {

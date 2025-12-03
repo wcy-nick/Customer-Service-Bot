@@ -91,6 +91,26 @@ export interface PaginatedResponse<T> {
   };
 }
 
+// 搜索相关接口
+export interface SearchResultDto {
+  id: string;
+  content: string;
+  score: number;
+  business_category_id?: string;
+  document_id?: string;
+}
+
+export interface SemanticSearchQuery {
+  query: string;
+  limit?: number;
+  threshold?: number;
+  business_category_id?: string;
+}
+
+export interface RelatedQuestionsRequest {
+  question: string;
+}
+
 // 文档相关接口
 export interface KnowledgeDocumentDto {
   id: string;
