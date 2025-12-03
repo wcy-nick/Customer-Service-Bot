@@ -73,3 +73,9 @@ export interface SendMessageDto {
   audio_file_path?: string;
   image_file_path?: string;
 }
+
+// 消息反馈请求DTO
+export interface MessageFeedbackDto {
+  rating: -1 | 1; // 负面/正面
+  feedback_text?: string;
+}

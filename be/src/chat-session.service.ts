@@ -11,6 +11,7 @@ import {
   GetMessagesQuery,
   SendMessageDto,
   MessageType,
+  MessageFeedbackDto,
 } from "./types/chat-session";
 
 @Injectable()
@@ -348,5 +349,37 @@ export class ChatSessionService {
       userMessage: userMessageDto,
       generateAssistantResponse,
     };
+  }
+
+  /**
+   * 创建消息反馈
+   */
+  async createMessageFeedback(
+    userId: string,
+    messageId: string,
+    data: MessageFeedbackDto,
+  ): Promise<void> {
+    // 查找消息，确保存在且属于当前用户
+    const message = await this.prismaService.client.chatMessage.findFirst({
+      where: {
+        id: messageId,
+        session: {
+          userId,
+        },
+      },
+    });
+
+    if (!message) {
+      throw new HttpException("Message not found", HttpStatus.NOT_FOUND);
+    }
+
+    // 创建反馈记录
+    await this.prismaService.client.messageFeedback.create({
+      data: {
+        messageId,
+        rating: data.rating,
+        feedbackText: data.feedback_text,
+      },
+    });
   }
 }

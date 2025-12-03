@@ -18,6 +18,7 @@ import { UploadController } from "./upload.controller";
 import { UploadService } from "./upload.service";
 import { ChatSessionController } from "./chat-session.controller";
 import { ChatSessionService } from "./chat-session.service";
+import { MessagesController } from "./messages.controller";
 
 @Module({
   imports: [],
@@ -30,6 +31,7 @@ import { ChatSessionService } from "./chat-session.service";
     DocumentController,
     UploadController,
     ChatSessionController,
+    MessagesController,
   ],
   providers: [
     AppService,
