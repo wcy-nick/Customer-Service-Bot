@@ -14,6 +14,14 @@ import {
 import { AuthGuard } from "@nestjs/passport";
 import { ChatSessionService } from "./chat-session.service";
 import { Sse } from "@nestjs/common";
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiQuery,
+  ApiParam,
+  ApiBody,
+} from "@nestjs/swagger";
 import type {
   ChatSessionDto,
   ChatSessionDetailDto,
@@ -32,6 +40,7 @@ export interface ServerSentEvent<T = any> {
   data: T;
 }
 
+@ApiTags("chat-sessions")
 @Controller("api/chat/sessions")
 @UseGuards(AuthGuard("jwt"))
 export class ChatSessionController {
@@ -41,6 +50,62 @@ export class ChatSessionController {
    * 获取聊天会话列表（带分页）
    * GET /api/chat/sessions
    */
+  @ApiOperation({ summary: "获取聊天会话列表（带分页）" })
+  @ApiQuery({
+    name: "page",
+    required: false,
+    type: Number,
+    description: "页码",
+  })
+  @ApiQuery({
+    name: "limit",
+    required: false,
+    type: Number,
+    description: "每页数量",
+  })
+  @ApiResponse({
+    status: 200,
+    description: "聊天会话列表（带分页）",
+    schema: {
+      type: "object",
+      properties: {
+        items: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              id: { type: "string", description: "会话ID" },
+              title: { type: "string", description: "会话标题" },
+              business_category_id: {
+                type: "string",
+                description: "业务分类ID",
+              },
+              scenario_category_id: {
+                type: "string",
+                description: "场景分类ID",
+              },
+              message_count: { type: "number", description: "消息数量" },
+              last_message_at: {
+                type: "string",
+                format: "date-time",
+                description: "最后消息时间",
+              },
+              created_at: {
+                type: "string",
+                format: "date-time",
+                description: "创建时间",
+              },
+            },
+          },
+        },
+        total: { type: "number", description: "总数量" },
+        page: { type: "number", description: "当前页码" },
+        limit: { type: "number", description: "每页数量" },
+        total_pages: { type: "number", description: "总页数" },
+      },
+    },
+  })
+  @ApiResponse({ status: 401, description: "未授权" })
   @Get()
   async getChatSessions(
     @Request() req: { user: { id: string } },
@@ -54,6 +119,44 @@ export class ChatSessionController {
    * 创建新的聊天会话
    * POST /api/chat/sessions
    */
+  @ApiOperation({ summary: "创建新的聊天会话" })
+  @ApiBody({
+    schema: {
+      type: "object",
+      properties: {
+        title: { type: "string", description: "会话标题" },
+        business_category_id: { type: "string", description: "业务分类ID" },
+        scenario_category_id: { type: "string", description: "场景分类ID" },
+      },
+      required: ["title", "business_category_id"],
+    },
+  })
+  @ApiResponse({
+    status: 201,
+    description: "创建的聊天会话",
+    schema: {
+      type: "object",
+      properties: {
+        id: { type: "string", description: "会话ID" },
+        title: { type: "string", description: "会话标题" },
+        business_category_id: { type: "string", description: "业务分类ID" },
+        scenario_category_id: { type: "string", description: "场景分类ID" },
+        message_count: { type: "number", description: "消息数量" },
+        last_message_at: {
+          type: "string",
+          format: "date-time",
+          description: "最后消息时间",
+        },
+        created_at: {
+          type: "string",
+          format: "date-time",
+          description: "创建时间",
+        },
+      },
+    },
+  })
+  @ApiResponse({ status: 400, description: "无效的请求参数" })
+  @ApiResponse({ status: 401, description: "未授权" })
   @Post()
   async createChatSession(
     @Request() req: { user: { id: string } },
@@ -67,6 +170,40 @@ export class ChatSessionController {
    * 获取聊天会话详情
    * GET /api/chat/sessions/:sessionId
    */
+  @ApiOperation({ summary: "获取聊天会话详情" })
+  @ApiParam({ name: "sessionId", type: String, description: "会话ID" })
+  @ApiResponse({
+    status: 200,
+    description: "聊天会话详情",
+    schema: {
+      type: "object",
+      properties: {
+        id: { type: "string", description: "会话ID" },
+        title: { type: "string", description: "会话标题" },
+        business_category_id: { type: "string", description: "业务分类ID" },
+        scenario_category_id: { type: "string", description: "场景分类ID" },
+        message_count: { type: "number", description: "消息数量" },
+        last_message_at: {
+          type: "string",
+          format: "date-time",
+          description: "最后消息时间",
+        },
+        created_at: {
+          type: "string",
+          format: "date-time",
+          description: "创建时间",
+        },
+        updated_at: {
+          type: "string",
+          format: "date-time",
+          description: "更新时间",
+        },
+      },
+    },
+  })
+  @ApiResponse({ status: 401, description: "未授权" })
+  @ApiResponse({ status: 403, description: "无权访问该会话" })
+  @ApiResponse({ status: 404, description: "会话不存在" })
   @Get(":sessionId")
   async getChatSessionById(
     @Request() req: { user: { id: string } },
@@ -80,6 +217,16 @@ export class ChatSessionController {
    * 删除聊天会话
    * DELETE /api/chat/sessions/:sessionId
    */
+  @ApiOperation({ summary: "删除聊天会话" })
+  @ApiParam({ name: "sessionId", type: String, description: "会话ID" })
+  @ApiResponse({
+    status: 200,
+    description: "删除成功",
+    schema: { type: "object", properties: { status: { type: "string" } } },
+  })
+  @ApiResponse({ status: 401, description: "未授权" })
+  @ApiResponse({ status: 403, description: "无权访问该会话" })
+  @ApiResponse({ status: 404, description: "会话不存在" })
   @Delete(":sessionId")
   async deleteChatSession(
     @Request() req: { user: { id: string } },
@@ -94,6 +241,45 @@ export class ChatSessionController {
    * 更新聊天会话标题
    * PUT /api/chat/sessions/:sessionId/title
    */
+  @ApiOperation({ summary: "更新聊天会话标题" })
+  @ApiParam({ name: "sessionId", type: String, description: "会话ID" })
+  @ApiBody({
+    schema: {
+      type: "object",
+      properties: {
+        title: { type: "string", description: "新的会话标题" },
+      },
+      required: ["title"],
+    },
+  })
+  @ApiResponse({
+    status: 200,
+    description: "更新后的聊天会话",
+    schema: {
+      type: "object",
+      properties: {
+        id: { type: "string", description: "会话ID" },
+        title: { type: "string", description: "会话标题" },
+        business_category_id: { type: "string", description: "业务分类ID" },
+        scenario_category_id: { type: "string", description: "场景分类ID" },
+        message_count: { type: "number", description: "消息数量" },
+        last_message_at: {
+          type: "string",
+          format: "date-time",
+          description: "最后消息时间",
+        },
+        created_at: {
+          type: "string",
+          format: "date-time",
+          description: "创建时间",
+        },
+      },
+    },
+  })
+  @ApiResponse({ status: 400, description: "无效的请求参数" })
+  @ApiResponse({ status: 401, description: "未授权" })
+  @ApiResponse({ status: 403, description: "无权访问该会话" })
+  @ApiResponse({ status: 404, description: "会话不存在" })
   @Put(":sessionId/title")
   async updateChatSessionTitle(
     @Request() req: { user: { id: string } },
@@ -112,6 +298,57 @@ export class ChatSessionController {
    * 获取会话的消息列表
    * GET /api/chat/sessions/:sessionId/messages
    */
+  @ApiOperation({ summary: "获取会话的消息列表" })
+  @ApiParam({ name: "sessionId", type: String, description: "会话ID" })
+  @ApiQuery({
+    name: "page",
+    required: false,
+    type: Number,
+    description: "页码",
+  })
+  @ApiQuery({
+    name: "limit",
+    required: false,
+    type: Number,
+    description: "每页数量",
+  })
+  @ApiResponse({
+    status: 200,
+    description: "消息列表（带分页）",
+    schema: {
+      type: "object",
+      properties: {
+        items: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              id: { type: "string", description: "消息ID" },
+              session_id: { type: "string", description: "会话ID" },
+              user_id: { type: "string", description: "用户ID" },
+              content: { type: "string", description: "消息内容" },
+              role: {
+                type: "string",
+                description: "消息角色（user或assistant）",
+              },
+              created_at: {
+                type: "string",
+                format: "date-time",
+                description: "创建时间",
+              },
+            },
+          },
+        },
+        total: { type: "number", description: "总数量" },
+        page: { type: "number", description: "当前页码" },
+        limit: { type: "number", description: "每页数量" },
+        total_pages: { type: "number", description: "总页数" },
+      },
+    },
+  })
+  @ApiResponse({ status: 401, description: "未授权" })
+  @ApiResponse({ status: 403, description: "无权访问该会话" })
+  @ApiResponse({ status: 404, description: "会话不存在" })
   @Get(":sessionId/messages")
   async getMessages(
     @Request() req: { user: { id: string } },
@@ -126,6 +363,32 @@ export class ChatSessionController {
    * 发送消息（支持流式响应）
    * POST /api/chat/sessions/:sessionId/messages
    */
+  @ApiOperation({ summary: "发送消息（支持流式响应）" })
+  @ApiParam({ name: "sessionId", type: String, description: "会话ID" })
+  @ApiBody({
+    schema: {
+      type: "object",
+      properties: {
+        content: { type: "string", description: "消息内容" },
+      },
+      required: ["content"],
+    },
+  })
+  @ApiResponse({
+    status: 200,
+    description: "流式响应的消息",
+    schema: {
+      type: "object",
+      properties: {
+        type: { type: "string", description: "事件类型" },
+        payload: { type: "object", description: "事件数据" },
+      },
+    },
+  })
+  @ApiResponse({ status: 400, description: "无效的请求参数" })
+  @ApiResponse({ status: 401, description: "未授权" })
+  @ApiResponse({ status: 403, description: "无权访问该会话" })
+  @ApiResponse({ status: 404, description: "会话不存在" })
   @Sse(":sessionId/messages", { method: RequestMethod.POST })
   async sendMessage(
     @Request() req: { user: { id: string } },
