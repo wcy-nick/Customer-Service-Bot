@@ -6,6 +6,7 @@ import {
   UnauthorizedException,
   Request,
   UseGuards,
+  Logger,
 } from "@nestjs/common";
 import {
   ApiTags,
@@ -27,6 +28,8 @@ import { User } from "../types/types";
 @ApiTags("auth")
 @Controller("api/auth")
 export class AuthController {
+  private readonly logger = new Logger(AuthController.name);
+
   constructor(private readonly authService: AuthService) {}
 
   @ApiOperation({ summary: "用户登录" })
@@ -79,7 +82,10 @@ export class AuthController {
   @UseGuards(LocalAuthGuard)
   @Post("login")
   async login(@Request() req: { user: User }): Promise<LoginResponse> {
-    return this.authService.loginWithUser(req.user);
+    this.logger.log(`用户 ${req.user.username} 正在登录`);
+    const result = await this.authService.loginWithUser(req.user);
+    this.logger.log(`用户 ${req.user.username} 登录成功`);
+    return result;
   }
 
   @ApiOperation({ summary: "刷新访问令牌" })
@@ -110,9 +116,15 @@ export class AuthController {
     @Body() refreshData: Partial<RefreshTokenRequest> | null | undefined,
   ): Promise<RefreshTokenResponse> {
     if (!refreshData?.refresh_token) {
+      this.logger.warn("刷新令牌请求缺少refresh_token");
       throw new UnauthorizedException("Refresh token is required");
     }
-    return this.authService.refreshToken(refreshData.refresh_token);
+    this.logger.log("收到刷新令牌请求");
+    const result = await this.authService.refreshToken(
+      refreshData.refresh_token,
+    );
+    this.logger.log("刷新令牌成功");
+    return result;
   }
 
   @ApiOperation({ summary: "用户登出" })
@@ -124,16 +136,20 @@ export class AuthController {
     @Headers("Authorization") authorization: string | null | undefined,
   ): Promise<void> {
     if (!authorization) {
+      this.logger.warn("登出请求缺少Authorization头");
       throw new UnauthorizedException("Authorization header is required");
     }
 
     const tokenMatch = authorization.match(/^Bearer\s+(.*)$/);
     if (!tokenMatch || !tokenMatch[1]) {
+      this.logger.warn("登出请求Authorization头格式无效");
       throw new UnauthorizedException("Invalid authorization header format");
     }
 
     const token = tokenMatch[1];
-    return this.authService.logout(token);
+    this.logger.log("收到登出请求");
+    await this.authService.logout(token);
+    this.logger.log("登出成功");
   }
 
   @ApiOperation({ summary: "用户注册" })
@@ -154,6 +170,9 @@ export class AuthController {
   @ApiResponse({ status: 400, description: "无效的注册数据" })
   @Post("register")
   async register(@Body() registerData: RegisterUserInput) {
-    return this.authService.register(registerData);
+    this.logger.log(`用户 ${registerData.username} 正在注册`);
+    const result = await this.authService.register(registerData);
+    this.logger.log(`用户 ${registerData.username} 注册成功`);
+    return result;
   }
 }

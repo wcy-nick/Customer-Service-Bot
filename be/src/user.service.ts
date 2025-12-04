@@ -2,6 +2,7 @@ import {
   Injectable,
   NotFoundException,
   ForbiddenException,
+  Logger,
 } from "@nestjs/common";
 import { PrismaService } from "./prisma.service";
 import { Prisma } from "@prisma/client";
@@ -27,20 +28,25 @@ interface UserModel {
 
 @Injectable()
 export class UserService {
+  private readonly logger = new Logger(UserService.name);
+
   constructor(private readonly prisma: PrismaService) {}
 
   /**
    * 获取当前用户信息
    */
   async getProfile(userId: string): Promise<UserDto> {
+    this.logger.log(`获取用户 ${userId} 的个人资料`);
     const user = await this.prisma.client.user.findUnique({
       where: { id: userId },
     });
 
     if (!user) {
+      this.logger.warn(`用户 ${userId} 不存在`);
       throw new NotFoundException("用户不存在");
     }
 
+    this.logger.log(`成功获取用户 ${userId} 的个人资料`);
     return this.mapUserToDto(user);
   }
 
@@ -51,11 +57,13 @@ export class UserService {
     userId: string,
     input: UpdateProfileInput,
   ): Promise<UserDto> {
+    this.logger.log(`更新用户 ${userId} 的个人资料`);
     const user = await this.prisma.client.user.findUnique({
       where: { id: userId },
     });
 
     if (!user) {
+      this.logger.warn(`用户 ${userId} 不存在，无法更新个人资料`);
       throw new NotFoundException("用户不存在");
     }
 
@@ -68,6 +76,7 @@ export class UserService {
       },
     });
 
+    this.logger.log(`成功更新用户 ${userId} 的个人资料`);
     return this.mapUserToDto(updatedUser);
   }
 
@@ -75,6 +84,7 @@ export class UserService {
    * 获取用户列表（支持分页、搜索和角色筛选）
    */
   async getUsers(query: GetUsersQuery): Promise<PaginatedResponse<UserDto>> {
+    this.logger.log(`获取用户列表，查询条件: ${JSON.stringify(query)}`);
     const page = query.page || 1;
     const limit = query.limit || 10;
     const offset = (page - 1) * limit;
@@ -105,6 +115,7 @@ export class UserService {
       orderBy: { createdAt: "desc" },
     });
 
+    this.logger.log(`成功获取用户列表，共 ${total} 个用户，当前第 ${page} 页`);
     return {
       data: users.map((user) => this.mapUserToDto(user)),
       meta: {
@@ -124,17 +135,24 @@ export class UserService {
     input: UpdateRoleInput,
     currentUserId: string,
   ): Promise<UserDto> {
+    this.logger.log(
+      `用户 ${currentUserId} 尝试更新用户 ${userId} 的角色为 ${input.role}`,
+    );
     // 验证当前用户是否为管理员
     const currentUser = await this.prisma.client.user.findUnique({
       where: { id: currentUserId },
     });
 
     if (!currentUser || currentUser.role !== "admin") {
+      this.logger.warn(`用户 ${currentUserId} 尝试更新角色，但不是管理员`);
       throw new ForbiddenException("只有管理员可以更新用户角色");
     }
 
     // 不能更改自己的角色
     if (currentUserId === userId) {
+      this.logger.warn(
+        `管理员 ${currentUserId} 尝试更改自己的角色，操作被拒绝`,
+      );
       throw new ForbiddenException("不能更改自己的角色");
     }
 
@@ -144,6 +162,9 @@ export class UserService {
     });
 
     if (!targetUser) {
+      this.logger.warn(
+        `用户 ${currentUserId} 尝试更新角色，但目标用户 ${userId} 不存在`,
+      );
       throw new NotFoundException("目标用户不存在");
     }
 
@@ -156,6 +177,9 @@ export class UserService {
       },
     });
 
+    this.logger.log(
+      `管理员 ${currentUserId} 成功将用户 ${userId} 的角色更新为 ${input.role}`,
+    );
     return this.mapUserToDto(updatedUser);
   }
 
@@ -163,14 +187,17 @@ export class UserService {
    * 根据ID获取用户信息（内部使用）
    */
   async getUserById(userId: string): Promise<UserDto | null> {
+    this.logger.log(`根据ID获取用户信息: ${userId}`);
     const user = await this.prisma.client.user.findUnique({
       where: { id: userId },
     });
 
     if (!user) {
+      this.logger.warn(`根据ID获取用户信息失败: ${userId} 不存在`);
       return null;
     }
 
+    this.logger.log(`根据ID获取用户信息成功: ${userId}`);
     return this.mapUserToDto(user);
   }
 

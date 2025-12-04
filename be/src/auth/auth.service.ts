@@ -2,6 +2,7 @@ import {
   Injectable,
   UnauthorizedException,
   ConflictException,
+  Logger,
 } from "@nestjs/common";
 import { PrismaService } from "../prisma.service";
 import * as bcrypt from "bcrypt";
@@ -16,6 +17,8 @@ import {
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
   constructor(
     private readonly prismaService: PrismaService,
     private readonly jwtService: JwtService,
@@ -38,14 +41,22 @@ export class AuthService {
   }
 
   async validateUser(username: string, password: string): Promise<User | null> {
+    this.logger.log(`正在验证用户 ${username}`);
     const user = await this.prisma.user.findUnique({
       where: { username },
     });
 
-    if (user && (await this.comparePasswords(password, user.passwordHash))) {
+    if (!user) {
+      this.logger.warn(`用户 ${username} 不存在`);
+      return null;
+    }
+
+    if (await this.comparePasswords(password, user.passwordHash)) {
+      this.logger.log(`用户 ${username} 验证成功`);
       return user;
     }
 
+    this.logger.warn(`用户 ${username} 密码错误`);
     return null;
   }
 
@@ -93,8 +104,10 @@ export class AuthService {
 
     if (existingUser) {
       if (existingUser.username === input.username) {
+        this.logger.warn(`用户注册失败：用户名 ${input.username} 已存在`);
         throw new ConflictException("用户名已存在");
       }
+      this.logger.warn(`用户注册失败：邮箱 ${input.email} 已被注册`);
       throw new ConflictException("邮箱已被注册");
     }
 
@@ -112,6 +125,7 @@ export class AuthService {
       },
     });
 
+    this.logger.log(`用户 ${input.username} 注册成功`);
     return {
       id: user.id,
       username: user.username,
@@ -130,11 +144,13 @@ export class AuthService {
     // 使用validateUser方法验证用户
     const user = await this.validateUser(input.username, input.password);
     if (!user) {
+      this.logger.warn(`用户 ${input.username} 登录失败：用户名或密码错误`);
       throw new UnauthorizedException("用户名或密码错误");
     }
 
     // 检查用户是否激活
     if (!user.isActive) {
+      this.logger.warn(`用户 ${input.username} 登录失败：账号已被禁用`);
       throw new UnauthorizedException("用户账号已被禁用");
     }
 
@@ -159,6 +175,7 @@ export class AuthService {
       email: user.email,
     };
 
+    this.logger.log(`为用户 ${user.username} 生成访问令牌和刷新令牌`);
     const accessToken = this.generateAccessToken(payload);
     const refreshToken = this.generateRefreshToken(payload);
     const refreshTokenHash = await this.hashToken(refreshToken);
@@ -202,6 +219,7 @@ export class AuthService {
       }
 
       if (!isValidToken) {
+        this.logger.warn(`无效的refresh token for user ${payload.username}`);
         throw new UnauthorizedException("无效的refresh token");
       }
 
@@ -212,8 +230,10 @@ export class AuthService {
         email: payload.email,
       });
 
+      this.logger.log(`为用户 ${payload.username} 生成新的访问令牌`);
       return { access_token: newAccessToken };
-    } catch {
+    } catch (error) {
+      this.logger.warn(`刷新令牌失败: ${(error as Error).message}`);
       throw new UnauthorizedException("无效的refresh token");
     }
   }
@@ -228,8 +248,10 @@ export class AuthService {
       await this.prisma.userSession.deleteMany({
         where: { userId: payload.userId },
       });
+      this.logger.log(`用户 ${payload.username} 已登出，删除所有会话`);
     } catch {
       // 即使token无效，也返回成功，以防止信息泄露
+      this.logger.warn("登出时验证token失败，但仍返回成功");
     }
   }
 }

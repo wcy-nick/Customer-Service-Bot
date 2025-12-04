@@ -1,4 +1,4 @@
-import { Module } from "@nestjs/common";
+import { MiddlewareConsumer, Module } from "@nestjs/common";
 import { ConfigModule } from "@nestjs/config";
 import { PrismaService } from "./prisma.service";
 import { UserController } from "./user.controller";
@@ -23,6 +23,7 @@ import { SyncController } from "./sync.controller";
 import { SyncService } from "./sync.service";
 import { EmbeddingModule } from "./embedding/embedding.module";
 import { AuthModule } from "./auth/auth.module";
+import { RouteLoggingMiddleware } from "./middleware/route-logging.middleware";
 
 @Module({
   imports: [
@@ -59,4 +60,8 @@ import { AuthModule } from "./auth/auth.module";
     SyncService,
   ],
 })
-export class AppModule {}
+export class AppModule {
+  configure(consumer: MiddlewareConsumer) {
+    consumer.apply(RouteLoggingMiddleware).forRoutes("*"); // 应用到所有路由
+  }
+}
