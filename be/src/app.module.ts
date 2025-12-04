@@ -1,7 +1,5 @@
 import { Module } from "@nestjs/common";
 import { ConfigModule } from "@nestjs/config";
-import { AppController } from "./app.controller";
-import { AppService } from "./app.service";
 import { PrismaService } from "./prisma.service";
 import { UserController } from "./user.controller";
 import { UserService } from "./user.service";
@@ -36,7 +34,6 @@ import { AuthModule } from "./auth/auth.module";
     AuthModule,
   ],
   controllers: [
-    AppController,
     UserController,
     BusinessCategoryController,
     ScenarioController,
@@ -49,7 +46,6 @@ import { AuthModule } from "./auth/auth.module";
     SyncController,
   ],
   providers: [
-    AppService,
     PrismaService,
     UserService,
     BusinessCategoryService,

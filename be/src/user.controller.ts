@@ -27,7 +27,7 @@ import type {
 } from "./types/types";
 
 @ApiTags("users")
-@Controller("users")
+@Controller("api/users")
 export class UserController {
   constructor(private readonly userService: UserService) {}
 
