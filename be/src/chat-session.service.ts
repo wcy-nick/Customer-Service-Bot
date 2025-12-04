@@ -281,16 +281,11 @@ export class ChatSessionService {
   /**
    * 发送消息（支持流式响应）
    */
-  async sendMessage(
+  async *sendMessage(
     userId: string,
     sessionId: string,
     data: SendMessageDto,
-  ): Promise<{
-    userMessage: ChatMessageDto;
-    generateAssistantResponse: (
-      callback: (chunk: string) => Promise<void>,
-    ) => Promise<void>;
-  }> {
+  ): AsyncGenerator<string, void, unknown> {
     // 验证会话是否存在且属于当前用户
     const session = await this.prismaService.client.chatSession.findUnique({
       where: {
@@ -304,7 +299,7 @@ export class ChatSessionService {
     }
 
     // 创建用户消息
-    const userMessage = await this.prismaService.client.chatMessage.create({
+    await this.prismaService.client.chatMessage.create({
       data: {
         sessionId,
         role: "user",
@@ -324,36 +319,20 @@ export class ChatSessionService {
       },
     });
 
-    // 转换用户消息为DTO
-    const userMessageDto: ChatMessageDto = {
-      id: userMessage.id,
-      role: userMessage.role,
-      content: userMessage.content,
-      message_type: userMessage.userMessageType as MessageType,
-      audio_file_path: userMessage.audioFilePath ?? undefined,
-      image_file_path: userMessage.imageFilePath ?? undefined,
-      createdAt: userMessage.createdAt.toISOString(),
-    };
+    // 创建LLM模型实例
+    const model = this.createChatModel();
 
-    // 生成助手响应的函数（用于流式返回）
-    const generateAssistantResponse = async (
-      callback: (chunk: string) => Promise<void>,
-    ): Promise<void> => {
-      try {
-        // 创建LLM模型实例
-        const model = this.createChatModel();
+    // 使用StringOutputParser来处理模型输出
+    const parser = new StringOutputParser();
 
-        // 使用StringOutputParser来处理模型输出
-        const parser = new StringOutputParser();
+    // 构建消息链
+    const chain = model.pipe(parser);
 
-        // 构建消息链
-        const chain = model.pipe(parser);
+    // RAG过程：获取与用户查询相关的上下文
+    const context = await this.qdrantService.buildContext(data.content);
 
-        // RAG过程：获取与用户查询相关的上下文
-        const context = await this.qdrantService.buildContext(data.content);
-
-        // 拼接适合RAG的prompt
-        const prompt = `基于以下上下文信息回答用户问题：
+    // 拼接适合RAG的prompt
+    const prompt = `基于以下上下文信息回答用户问题：
 
 上下文信息：
 ${context}
@@ -362,48 +341,34 @@ ${context}
 
 请根据上下文信息进行回答，如果上下文信息不足，请明确说明`;
 
-        // 准备用户消息
-        const messages = [new HumanMessage(prompt)];
+    // 准备用户消息
+    const messages = [new HumanMessage(prompt)];
 
-        // 流式获取响应
-        const accumulatedResponse: string[] = [];
-        const stream = await chain.stream(messages);
+    // 流式获取响应
+    const accumulatedResponse: string[] = [];
 
-        // 处理流中的每个块
-        for await (const chunk of stream) {
-          accumulatedResponse.push(chunk);
-          await callback(chunk);
-        }
-
-        // 保存助手回复到数据库
-        await this.prismaService.client.chatMessage.create({
-          data: {
-            sessionId,
-            role: "assistant",
-            content: accumulatedResponse.join(""),
-          },
-        });
-      } catch (error) {
-        console.error("Error generating assistant response:", error);
-        // 生成错误回复
-        const errorMessage = "抱歉，生成回复时出现了错误。请稍后重试。";
-        await callback(errorMessage);
-
-        // 保存错误回复到数据库
-        await this.prismaService.client.chatMessage.create({
-          data: {
-            sessionId,
-            role: "assistant",
-            content: errorMessage,
-          },
-        });
+    const stream = await chain.stream(messages);
+    try {
+      // 处理流中的每个块
+      for await (const chunk of stream) {
+        accumulatedResponse.push(chunk);
+        yield chunk;
       }
-    };
+    } catch {
+      const errorMessage = "ErrorGenerating";
+      yield errorMessage;
 
-    return {
-      userMessage: userMessageDto,
-      generateAssistantResponse,
-    };
+      accumulatedResponse.push(errorMessage);
+    }
+
+    // 保存助手回复到数据库
+    await this.prismaService.client.chatMessage.create({
+      data: {
+        sessionId,
+        role: "assistant",
+        content: accumulatedResponse.join(""),
+      },
+    });
   }
 
   /**

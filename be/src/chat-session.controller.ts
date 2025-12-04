@@ -412,49 +412,39 @@ export class ChatSessionController {
      * 4. 结果：user_message → 若干 assistant_chunk → done/error 全程不丢包。
      */
     (async () => {
-      try {
-        // 发送用户消息并准备生成助手回复
-        const { userMessage, generateAssistantResponse } =
-          await this.chatSessionService.sendMessage(userId, sessionId, data);
+      const response = this.chatSessionService.sendMessage(
+        userId,
+        sessionId,
+        data,
+      );
 
-        // 发送用户消息事件
+      // 流式获取助手回复
+      for await (const chunk of response) {
+        const data =
+          chunk === "ErrorGenerating"
+            ? {
+                type: "error",
+                payload: { content: "抱歉，生成失败，请稍后重试" },
+              }
+            : {
+                type: "chunk",
+                payload: { content: chunk },
+              };
+
         subject.next({
-          data: {
-            type: "user_message",
-            payload: userMessage,
-          },
+          data,
         });
-
-        // 流式生成并发送助手回复
-        await generateAssistantResponse((chunk) => {
-          subject.next({
-            data: {
-              type: "assistant_chunk",
-              payload: { content: chunk },
-            },
-          });
-          return Promise.resolve();
-        });
-
-        // 发送完成事件
-        subject.next({
-          data: {
-            type: "done",
-            payload: { status: "completed" },
-          },
-        });
-
-        subject.complete();
-      } catch (error) {
-        // 发送错误事件
-        subject.next({
-          data: {
-            type: "error",
-            payload: { message: (error as Error).message },
-          },
-        });
-        subject.complete();
       }
+
+      // 发送完成事件
+      subject.next({
+        data: {
+          type: "done",
+          payload: {},
+        },
+      });
+
+      subject.complete();
     })();
 
     return subject.asObservable();
