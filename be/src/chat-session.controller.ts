@@ -390,59 +390,72 @@ export class ChatSessionController {
   @ApiResponse({ status: 403, description: "无权访问该会话" })
   @ApiResponse({ status: 404, description: "会话不存在" })
   @Sse(":sessionId/messages", { method: RequestMethod.POST })
-  async sendMessage(
+  sendMessage(
     @Request() req: { user: { id: string } },
     @Param("sessionId") sessionId: string,
     @Body() data: SendMessageDto,
-  ): Promise<Observable<ServerSentEvent>> {
+  ): Observable<ServerSentEvent> {
     const userId = req.user.id;
 
     // 创建一个Subject来发送SSE事件
     const subject = new Subject<ServerSentEvent>();
 
-    try {
-      // 发送用户消息并准备生成助手回复
-      const { userMessage, generateAssistantResponse } =
-        await this.chatSessionService.sendMessage(userId, sessionId, data);
+    /**
+     * 为什么 sendMessage 已经是 async 还要再包一层 IIFE？千万不能await该IIFE
+     * ------------------------------------------------
+     * 1. SSE 靠 Observable 驱动：Nest 在方法返回那一刻就会订阅 Observable，
+     *    订阅成功后才开始向客户端吐事件。
+     * 2. async 函数一旦遇到 await 会“暂停”，在暂停期间尚未返回 Observable，
+     *    导致 Nest 根本来不及订阅，后续事件就丢失了。
+     * 3. 把真正的异步逻辑放进 IIFE，让主函数同步地立刻把 Observable 抛出去，
+     *    Nest 立即订阅，IIFE 里再慢慢 await，事件就能稳稳地流进已建立的通道。
+     * 4. 结果：user_message → 若干 assistant_chunk → done/error 全程不丢包。
+     */
+    (async () => {
+      try {
+        // 发送用户消息并准备生成助手回复
+        const { userMessage, generateAssistantResponse } =
+          await this.chatSessionService.sendMessage(userId, sessionId, data);
 
-      // 发送用户消息事件
-      subject.next({
-        data: {
-          type: "user_message",
-          payload: userMessage,
-        },
-      });
-
-      // 流式生成并发送助手回复
-      await generateAssistantResponse((chunk) => {
+        // 发送用户消息事件
         subject.next({
           data: {
-            type: "assistant_chunk",
-            payload: { content: chunk },
+            type: "user_message",
+            payload: userMessage,
           },
         });
-        return Promise.resolve();
-      });
 
-      // 发送完成事件
-      subject.next({
-        data: {
-          type: "done",
-          payload: { status: "completed" },
-        },
-      });
+        // 流式生成并发送助手回复
+        await generateAssistantResponse((chunk) => {
+          subject.next({
+            data: {
+              type: "assistant_chunk",
+              payload: { content: chunk },
+            },
+          });
+          return Promise.resolve();
+        });
 
-      subject.complete();
-    } catch (error) {
-      // 发送错误事件
-      subject.next({
-        data: {
-          type: "error",
-          payload: { message: (error as Error).message },
-        },
-      });
-      subject.complete();
-    }
+        // 发送完成事件
+        subject.next({
+          data: {
+            type: "done",
+            payload: { status: "completed" },
+          },
+        });
+
+        subject.complete();
+      } catch (error) {
+        // 发送错误事件
+        subject.next({
+          data: {
+            type: "error",
+            payload: { message: (error as Error).message },
+          },
+        });
+        subject.complete();
+      }
+    })();
 
     return subject.asObservable();
   }
