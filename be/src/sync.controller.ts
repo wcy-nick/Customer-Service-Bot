@@ -8,12 +8,13 @@ import {
   UseGuards,
 } from "@nestjs/common";
 import { SyncService } from "./sync.service";
-import type {
-  SyncJobsQuery,
-  SyncJobDetailDto,
-  DouyinKnowledgeSyncInput,
-  SyncJobResponse,
-  PaginatedResponse,
+import {
+  type SyncJobsQuery,
+  type SyncJobDetailDto,
+  type DouyinKnowledgeSyncInput,
+  type SyncJobResponse,
+  type PaginatedResponse,
+  SyncMode,
 } from "./types/types";
 import { JwtAuthGuard } from "./auth/jwt-auth.guard";
 import {
@@ -152,19 +153,12 @@ export class SyncController {
     schema: {
       type: "object",
       properties: {
-        account_id: { type: "string", description: "抖音账号ID" },
-        categories: {
-          type: "array",
-          items: { type: "string" },
-          description: "需要同步的分类列表",
-        },
-        sync_mode: {
+        mode: {
           type: "string",
           enum: ["full", "incremental"],
           description: "同步模式: full-全量, incremental-增量",
         },
       },
-      required: ["account_id", "sync_mode"],
     },
   })
   @ApiResponse({
@@ -181,9 +175,10 @@ export class SyncController {
   })
   @Post("douyin-knowledge")
   async syncDouyinKnowledge(
-    @Body() body: DouyinKnowledgeSyncInput,
+    @Body() body: DouyinKnowledgeSyncInput | undefined,
   ): Promise<SyncJobResponse> {
-    return this.syncService.syncDouyinKnowledge(body);
+    const mode = body?.mode || SyncMode.Incremental;
+    return this.syncService.syncDouyinKnowledge(mode);
   }
 
   /**

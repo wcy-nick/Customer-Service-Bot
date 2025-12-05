@@ -353,9 +353,13 @@ export interface SyncJobsQuery {
   limit?: number;
 }
 
+export enum SyncMode {
+  Full = "full",
+  Incremental = "incremental",
+}
+
 export interface DouyinKnowledgeSyncInput {
-  sync_type: "full" | "incremental";
-  force?: boolean;
+  mode: SyncMode;
 }
 
 export interface SyncJobResponse {

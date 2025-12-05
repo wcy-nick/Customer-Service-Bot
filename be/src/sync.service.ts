@@ -1,11 +1,11 @@
-import { Injectable } from "@nestjs/common";
+import { Injectable, Logger } from "@nestjs/common";
 import { PrismaService } from "./prisma.service";
 import {
   SyncJobsQuery,
   SyncJobDetailDto,
-  DouyinKnowledgeSyncInput,
   SyncJobResponse,
   PaginatedResponse,
+  SyncMode,
 } from "./types/types";
 import { Prisma } from "@prisma/client";
 import Bottleneck from "bottleneck";
@@ -13,6 +13,7 @@ import fs from "fs/promises";
 import { sanitizeWindowsPath } from "./utils/pathUtils.js";
 
 interface Article {
+  id: string;
   content: object;
   name: string;
   update_timestamp: number;
@@ -23,20 +24,34 @@ interface Response<T> {
 }
 
 type ArticleResponse = Response<{
-  article_info: { content: string; name: string; update_timestamp: number };
+  article_info: {
+    article_id: string;
+    content: string;
+    name: string;
+    update_timestamp: number;
+  };
 }>;
 
+interface MenuItem {
+  id: string;
+  title: string;
+  cover_image: string;
+  create_at: number;
+  update_at: number;
+}
+
 type MenuResponse = Response<{
-  articles: { id: string }[];
+  articles: MenuItem[];
 }>;
 
 @Injectable()
 export class SyncService {
   private readonly baseURL: string =
     "https://school.jinritemai.com/api/eschool/v2/library";
-  private readonly outputDir: string = "articles";
+  private readonly articlesDir: string = "articles";
   private readonly merchantID: string = "11593";
   private readonly limiter: Bottleneck;
+  private readonly logger = new Logger(SyncService.name);
 
   constructor(private readonly prismaService: PrismaService) {
     this.limiter = new Bottleneck({
@@ -135,30 +150,31 @@ export class SyncService {
    * @param input 同步输入参数
    * @returns 同步作业响应
    */
-  async syncDouyinKnowledge(
-    input: DouyinKnowledgeSyncInput,
-  ): Promise<SyncJobResponse> {
+  async syncDouyinKnowledge(mode: SyncMode): Promise<SyncJobResponse> {
     // 创建同步作业记录
     const syncJob = await this.prismaService.client.dataSourceSync.create({
       data: {
         sourceType: "douyin-knowledge",
-        syncType: input.sync_type,
+        syncType: mode,
         status: "pending",
       },
     });
 
-    // 异步执行同步任务
-    this.executeDouyinSync(syncJob.id).catch(async (error: Error) => {
+    await fs.mkdir(this.articlesDir, { recursive: true });
+
+    try {
+      await this.executeDouyinSync(mode, syncJob.id);
+    } catch (error) {
       // 更新作业状态为失败
       await this.prismaService.client.dataSourceSync.update({
         where: { id: syncJob.id },
         data: {
           status: "failed",
-          errorMessage: error.message,
+          errorMessage: error instanceof Error ? error.message : String(error),
           completedAt: new Date(),
         },
       });
-    });
+    }
 
     return {
       job_id: syncJob.id,
@@ -169,9 +185,11 @@ export class SyncService {
   /**
    * 执行抖音知识同步
    * @param jobId 作业ID
-   * @param _input 同步输入参数
    */
-  private async executeDouyinSync(jobId: string): Promise<void> {
+  private async executeDouyinSync(
+    mode: SyncMode,
+    jobId: string,
+  ): Promise<void> {
     // 更新作业状态为开始
     await this.prismaService.client.dataSourceSync.update({
       where: { id: jobId },
@@ -181,16 +199,27 @@ export class SyncService {
       },
     });
 
-    try {
-      // 获取文章列表
-      const menu = await this.fetchMerchantMenu();
-      const articleIds = this.parseMenu(menu);
+    const articles = mode === SyncMode.Full ? [] : await this.readArticleList();
+    const menu = await this.fetchMerchantMenu();
+    const articleInfo = this.parseMenu(menu);
+    const existingArticles = new Map(
+      articles.map((item) => [item.id, item.update]),
+    );
+    const incrementalArticles = articleInfo.filter((item) => {
+      const existingUpdateAt = existingArticles.get(item.id)!;
+      const ok = existingUpdateAt >= item.update_at;
+      return !ok;
+    });
+    this.logger.log(
+      `Sync ${mode}: ${incrementalArticles.length}/${articleInfo.length}`,
+    );
 
+    try {
       // 更新总任务数
       await this.prismaService.client.dataSourceSync.update({
         where: { id: jobId },
         data: {
-          itemsTotal: articleIds.length,
+          itemsTotal: incrementalArticles.length,
         },
       });
 
@@ -198,21 +227,25 @@ export class SyncService {
 
       // 创建作业队列
       await Promise.all(
-        articleIds.map(async (id) => {
+        incrementalArticles.map(async (menuItem) => {
           await this.limiter.schedule(async () => {
             // 创建作业任务
             await this.prismaService.client.jobQueue.create({
               data: {
                 queueName: `sync_${jobId}`,
-                jobName: `sync_article_${id}`,
-                payload: { articleId: id },
+                jobName: `sync_article_${menuItem.id}`,
+                payload: { articleId: menuItem.id },
                 status: "waiting",
               },
             });
 
             // 执行文章同步
-            const json = await this.fetchArticle(id);
+            const json = await this.fetchArticle(menuItem.id);
             const article = this.parseArticle(json);
+            article.update_timestamp = Math.max(
+              article.update_timestamp,
+              menuItem.update_at,
+            );
             await this.saveArticleJSON(article);
 
             // 更新处理计数
@@ -228,7 +261,7 @@ export class SyncService {
             await this.prismaService.client.jobQueue.updateMany({
               where: {
                 queueName: `sync_${jobId}`,
-                jobName: `sync_article_${id}`,
+                jobName: `sync_article_${menuItem.id}`,
               },
               data: {
                 status: "completed",
@@ -333,20 +366,25 @@ export class SyncService {
     return this.fetchData(url);
   }
 
-  public parseMenu(json: MenuResponse): string[] {
+  public parseMenu(json: MenuResponse): MenuItem[] {
     const {
       data: { articles },
     } = json;
-    return articles.map((item: { id: string }) => item.id);
+    return articles;
   }
 
   public parseArticle(json: ArticleResponse): Article {
     const {
       data: {
-        article_info: { content, name, update_timestamp },
+        article_info: { article_id, content, name, update_timestamp },
       },
     } = json;
-    return { content: JSON.parse(content) as object, name, update_timestamp };
+    return {
+      id: article_id,
+      content: JSON.parse(content) as object,
+      name,
+      update_timestamp,
+    };
   }
 
   private async saveJSON(data: object, filePath: string): Promise<void> {
@@ -355,10 +393,24 @@ export class SyncService {
 
   public async saveArticleJSON(article: Article): Promise<void> {
     const sanitizedName = sanitizeWindowsPath(article.name);
-    await fs.mkdir(this.outputDir, { recursive: true });
     return this.saveJSON(
       article.content,
-      `${this.outputDir}/${sanitizedName}-${article.update_timestamp}.json`,
+      `${this.articlesDir}/${article.id}-${article.update_timestamp}-${sanitizedName}.json`,
     );
+  }
+
+  private async readArticleList(): Promise<
+    { id: string; title: string; update: number }[]
+  > {
+    const files = await fs.readdir(this.articlesDir);
+    const articles = files.map((name) => {
+      const [, id, timestamp, title] = /(\w+)-(\d+)-(.+)\.json/.exec(name)!;
+      return {
+        id,
+        title,
+        update: Number(timestamp),
+      };
+    });
+    return articles;
   }
 }
