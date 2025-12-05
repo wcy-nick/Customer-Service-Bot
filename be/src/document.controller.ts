@@ -252,7 +252,10 @@ export class DocumentController {
     if (file) {
       this.logger.log(`File uploaded: ${file.originalname}`);
       body.title ||= file.originalname;
-      body.content ||= file.buffer.toString();
+      body.content ||= file.buffer.toString("utf8");
+      if (body.content.includes("\uFFFD")) {
+        throw new BadRequestException(`${body.title} 内容包含无效字符`);
+      }
     }
     if (!body.title) {
       throw new BadRequestException("标题不能为空");
