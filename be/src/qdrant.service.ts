@@ -1,4 +1,4 @@
-import { Injectable, OnModuleInit } from "@nestjs/common";
+import { Injectable, Logger, OnModuleInit } from "@nestjs/common";
 import { QdrantClient } from "@qdrant/js-client-rest";
 import { randomUUID } from "crypto";
 import { ConfigService } from "@nestjs/config";
@@ -19,6 +19,8 @@ export interface RetrievedChunk extends DocumentChunk {
 export class QdrantService implements OnModuleInit {
   private client: QdrantClient;
   private readonly qdrantCollection: string;
+  private readonly resetOnStartup: boolean;
+  private readonly logger = new Logger(QdrantService.name);
 
   constructor(
     private readonly configService: ConfigService,
@@ -33,26 +35,45 @@ export class QdrantService implements OnModuleInit {
 
     this.qdrantCollection =
       this.configService.get<string>("QDRANT_COLLECTION") || "documents";
+    this.resetOnStartup =
+      this.configService.get<boolean>("QDRANT_RESET_ON_STARTUP") || false;
   }
 
   async onModuleInit() {
-    await this.ensureCollection();
+    await this.ensureCollection(this.resetOnStartup);
   }
 
-  async ensureCollection() {
-    const exists = await this.client.getCollection(this.qdrantCollection).then(
-      () => true,
-      () => false,
-    );
+  async createCollection() {
+    await this.client.createCollection(this.qdrantCollection, {
+      vectors: {
+        size: 1024,
+        distance: "Cosine",
+      },
+    });
+  }
 
-    if (!exists) {
-      await this.client.createCollection(this.qdrantCollection, {
-        vectors: {
-          size: 1024,
-          distance: "Cosine",
-        },
-      });
+  async resetCollection() {
+    await this.client.deleteCollection(this.qdrantCollection);
+    await this.createCollection();
+  }
+
+  async ensureCollection(reset: boolean = false) {
+    const exists = await this.client.collectionExists(this.qdrantCollection);
+
+    if (exists) {
+      if (reset) {
+        await this.resetCollection();
+      }
+    } else {
+      await this.createCollection();
     }
+  }
+
+  async getCollections() {
+    const result = await this.client.getCollections();
+    const collections = result.collections;
+    this.logger.log(`Collections: ${JSON.stringify(collections)}`);
+    return collections;
   }
 
   async upsertDocuments(documents: DocumentChunk[]): Promise<void> {
@@ -73,11 +94,16 @@ export class QdrantService implements OnModuleInit {
       },
     }));
 
-    // 修复Qdrant客户端调用格式
+    this.logger.verbose(
+      `Upserting ${points.length} points to collection ${this.qdrantCollection}`,
+    );
     await this.client.upsert(this.qdrantCollection, {
       wait: true,
       points,
     });
+    this.logger.verbose(
+      `Upserted ${points.length} points to collection ${this.qdrantCollection}`,
+    );
   }
 
   async retrieveRelevantChunks(

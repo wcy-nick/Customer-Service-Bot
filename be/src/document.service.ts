@@ -12,6 +12,7 @@ import {
 import { Prisma } from "@prisma/client";
 import { RecursiveCharacterTextSplitter } from "@langchain/textsplitters";
 import { QdrantService } from "./qdrant.service";
+import { randomUUID } from "crypto";
 
 interface KnowledgeDocumentModel {
   id: string;
@@ -142,29 +143,18 @@ export class DocumentService {
     input: CreateDocumentInput,
     userId: string,
   ): Promise<KnowledgeDocumentDto> {
-    // 创建文档
+    const data = userId
+      ? {
+          ...input,
+          createdBy: userId,
+          updatedBy: userId,
+          status: "draft",
+          readCount: 0,
+        }
+      : input;
     const document = await this.prismaService.client.knowledgeDocument.create({
-      data: {
-        ...input,
-        createdBy: userId,
-        updatedBy: userId,
-        status: "draft",
-        readCount: 0,
-      },
-      include: {
-        businessCategory: { select: { id: true, name: true } },
-        scenarioCategory: { select: { id: true, name: true } },
-        // 移除不支持的include
-      },
+      data,
     });
-
-    // 创建初始版本
-    await this.createDocumentVersion(
-      document.id,
-      input.content,
-      input.title,
-      userId,
-    );
 
     return this.mapToDto(document);
   }
@@ -193,19 +183,8 @@ export class DocumentService {
         include: {
           businessCategory: { select: { id: true, name: true } },
           scenarioCategory: { select: { id: true, name: true } },
-          // 移除不支持的include
         },
       });
-
-    // 创建新版本 - 确保content不为null
-    const content = existingDocument.content || "";
-    // 确保summary不为null
-    await this.createDocumentVersion(
-      id,
-      content,
-      updatedDocument.title,
-      userId,
-    );
 
     return this.mapToDto(updatedDocument);
   }
@@ -277,7 +256,7 @@ export class DocumentService {
     return this.mapToDto(updatedDocument);
   }
 
-  async vectorizeDocument(id: string): Promise<void> {
+  async vectorizeDocumentById(id: string): Promise<void> {
     // 获取文档信息
     const document =
       await this.prismaService.client.knowledgeDocument.findUnique({
@@ -285,25 +264,28 @@ export class DocumentService {
         select: { title: true, content: true, id: true },
       });
 
-    if (!document || !document.content) {
+    if (!document?.content) {
       throw new NotFoundException(
         `Document with id ${id} not found or has no content`,
       );
     }
+    return this.vectorizeDocument(document.content, document.id);
+  }
 
+  async vectorizeDocument(content: string, documentId: string): Promise<void> {
     // 文本分割
     const textSplitter = new RecursiveCharacterTextSplitter({
       chunkSize: 1000,
       chunkOverlap: 200,
     });
 
-    const chunks = await textSplitter.splitText(document.content);
+    const chunks = await textSplitter.splitText(content);
 
     // 为每个chunk添加元数据
-    const documents = chunks.map((chunk, index) => ({
-      id: `${document.id}_chunk_${index}`,
+    const documents = chunks.map((chunk) => ({
+      id: randomUUID(),
       content: chunk,
-      documentId: document.id,
+      documentId,
     }));
 
     // 调用QdrantService进行向量存储
@@ -311,7 +293,7 @@ export class DocumentService {
 
     // 更新文档的向量化状态
     await this.prismaService.client.knowledgeDocument.update({
-      where: { id },
+      where: { id: documentId },
       data: { isVectorized: true },
     });
   }
@@ -379,44 +361,7 @@ export class DocumentService {
         },
       });
 
-    // 创建新版本记录 - 确保summary不为null
-    await this.createDocumentVersion(
-      id,
-      versionToRollback.content,
-      updatedDocument.title,
-      userId,
-    );
-
     return this.mapToDto(updatedDocument);
-  }
-
-  /**
-   * 创建文档版本
-   */
-  private async createDocumentVersion(
-    documentId: string,
-    content: string,
-    title: string,
-    userId: string,
-  ): Promise<void> {
-    // 获取最新版本号
-    const latestVersion =
-      await this.prismaService.client.documentVersion.findFirst({
-        where: { documentId },
-        orderBy: { version: "desc" },
-      });
-
-    const nextVersion = latestVersion ? latestVersion.version + 1 : 1;
-
-    await this.prismaService.client.documentVersion.create({
-      data: {
-        documentId,
-        version: nextVersion,
-        content,
-        title,
-        createdBy: userId,
-      },
-    });
   }
 
   // 转换为基本DTO

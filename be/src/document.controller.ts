@@ -410,7 +410,7 @@ export class DocumentController {
   @UseGuards(AuthGuard("jwt"))
   @Post(":id/vectorize")
   async vectorizeDocument(@Param("id") id: string): Promise<void> {
-    return this.documentService.vectorizeDocument(id);
+    return this.documentService.vectorizeDocumentById(id);
   }
 
   @ApiOperation({ summary: "获取文档版本列表" })

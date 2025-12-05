@@ -170,7 +170,7 @@ export interface CreateDocumentInput {
   title: string;
   content: string;
   summary?: string;
-  business_category_id: string;
+  business_category_id?: string;
   scenario_category_id?: string;
   source_type?: "manual" | "douyin" | "wechat" | "other";
   source_url?: string;

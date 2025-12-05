@@ -12,6 +12,7 @@ import Bottleneck from "bottleneck";
 import fs from "fs/promises";
 import { sanitizeWindowsPath } from "./utils/pathUtils.js";
 import * as Jinritemai from "./utils/jinritemai.js";
+import { DocumentService } from "./document.service";
 
 interface Article {
   id: string;
@@ -55,7 +56,10 @@ export class SyncService {
   private readonly limiter: Bottleneck;
   private readonly logger = new Logger(SyncService.name);
 
-  constructor(private readonly prismaService: PrismaService) {
+  constructor(
+    private readonly prismaService: PrismaService,
+    private readonly documentService: DocumentService,
+  ) {
     this.limiter = new Bottleneck({
       maxConcurrent: 30,
       minTime: 50,
@@ -193,15 +197,6 @@ export class SyncService {
     mode: SyncMode,
     jobId: string,
   ): Promise<void> {
-    // 更新作业状态为开始
-    await this.prismaService.client.dataSourceSync.update({
-      where: { id: jobId },
-      data: {
-        status: "running",
-        startedAt: new Date(),
-      },
-    });
-
     const articles = mode === SyncMode.Full ? [] : await this.readArticleList();
     const menu = await this.fetchMerchantMenu();
     const articleInfo = this.parseMenu(menu);
@@ -217,99 +212,38 @@ export class SyncService {
       `Sync ${mode}: ${incrementalArticles.length}/${articleInfo.length}`,
     );
 
-    try {
-      // 更新总任务数
-      await this.prismaService.client.dataSourceSync.update({
-        where: { id: jobId },
-        data: {
-          itemsTotal: incrementalArticles.length,
-        },
-      });
-
-      let processedCount = 0;
-
-      // 创建作业队列
-      await Promise.all(
-        incrementalArticles.map(async (menuItem) => {
-          await this.limiter.schedule(async () => {
-            // 创建作业任务
-            await this.prismaService.client.jobQueue.create({
-              data: {
-                queueName: `sync_${jobId}`,
-                jobName: `sync_article_${menuItem.id}`,
-                payload: { articleId: menuItem.id },
-                status: "waiting",
-              },
-            });
-
-            // 执行文章同步
-            const json = await this.fetchArticle(menuItem.id);
-            const article = this.parseArticle(json);
-            article.update_timestamp = Math.max(
-              article.update_timestamp,
-              menuItem.update_at,
-            );
-            await this.saveArticle(article);
-
-            // 更新处理计数
-            processedCount++;
-            await this.prismaService.client.dataSourceSync.update({
-              where: { id: jobId },
-              data: {
-                itemsProcessed: processedCount,
-              },
-            });
-
-            // 更新作业任务状态
-            await this.prismaService.client.jobQueue.updateMany({
-              where: {
-                queueName: `sync_${jobId}`,
-                jobName: `sync_article_${menuItem.id}`,
-              },
-              data: {
-                status: "completed",
-                finishedAt: new Date(),
-              },
-            });
+    await Promise.all(
+      incrementalArticles.map((menuItem) =>
+        this.limiter.schedule(async () => {
+          // 创建作业任务
+          await this.prismaService.client.jobQueue.create({
+            data: {
+              queueName: `sync_${jobId}`,
+              jobName: `sync_article_${menuItem.id}`,
+              payload: { articleId: menuItem.id },
+              status: "waiting",
+            },
           });
+
+          // 执行文章同步
+          const json = await this.fetchArticle(menuItem.id);
+          const article = this.parseArticle(json);
+          article.update_timestamp = Math.max(
+            article.update_timestamp,
+            menuItem.update_at,
+          );
+          const markdown = await this.saveArticle(article);
+          const document = await this.documentService.createDocument(
+            {
+              content: markdown,
+              title: article.name,
+            },
+            "",
+          );
+          await this.documentService.vectorizeDocument(markdown, document.id);
         }),
-      );
-
-      // 更新作业状态为完成
-      await this.prismaService.client.dataSourceSync.update({
-        where: { id: jobId },
-        data: {
-          status: "completed",
-          completedAt: new Date(),
-        },
-      });
-    } catch (error) {
-      // 更新作业状态为失败
-      await this.prismaService.client.dataSourceSync.update({
-        where: { id: jobId },
-        data: {
-          status: "failed",
-          errorMessage:
-            error instanceof Error ? error.message : "Unknown error",
-          completedAt: new Date(),
-        },
-      });
-
-      // 记录错误到作业队列
-      await this.prismaService.client.jobQueue.create({
-        data: {
-          queueName: `sync_${jobId}`,
-          jobName: "sync_error",
-          payload: {
-            error: error instanceof Error ? error.message : "Unknown error",
-          },
-          status: "failed",
-          errorMessage:
-            error instanceof Error ? error.message : "Unknown error",
-          finishedAt: new Date(),
-        },
-      });
-    }
+      ),
+    );
   }
 
   /**
@@ -394,7 +328,7 @@ export class SyncService {
     return fs.writeFile(filePath, JSON.stringify(data, null, 2), "utf-8");
   }
 
-  public async saveArticle(article: Article): Promise<void> {
+  public async saveArticle(article: Article): Promise<string> {
     const sanitizedName = sanitizeWindowsPath(article.name);
 
     const saveJSON = this.saveJSON(
@@ -412,6 +346,7 @@ export class SyncService {
     );
 
     await Promise.all([saveJSON, saveMD]);
+    return md;
   }
 
   private async readArticleList(): Promise<
