@@ -52,7 +52,7 @@ export class DocumentService {
       status,
       source_type,
       tags,
-      sort_by = "created_at",
+      sort_by = "createdAt",
       sort_order = "desc",
     } = query;
 
@@ -217,7 +217,7 @@ export class DocumentService {
       });
 
     if (!existingDocument) {
-      throw new NotFoundException("Document not found");
+      return;
     }
 
     // 先删除所有版本记录

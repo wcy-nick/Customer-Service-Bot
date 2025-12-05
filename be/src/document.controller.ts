@@ -13,6 +13,7 @@ import {
   Logger,
   Request,
   ParseIntPipe,
+  BadRequestException,
 } from "@nestjs/common";
 import { DocumentService } from "./document.service";
 import type {
@@ -22,6 +23,7 @@ import type {
   DocumentVersionDetailDto,
   GetDocumentsQuery,
   CreateDocumentInput,
+  PaginatedResponse,
 } from "./types/types";
 import { AuthGuard } from "@nestjs/passport";
 import { FileInterceptor } from "@nestjs/platform-express";
@@ -77,11 +79,96 @@ export class DocumentController {
   })
   @ApiResponse({
     status: 200,
-    description: "文档列表",
-    schema: { type: "object" },
+    description: "获取文档列表成功",
+    schema: {
+      type: "object",
+      properties: {
+        data: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              id: { type: "string", description: "文档ID" },
+              title: { type: "string", description: "文档标题" },
+              summary: { type: "string", description: "文档摘要" },
+              business_category_id: {
+                type: "string",
+                description: "业务分类ID",
+              },
+              scenario_category_id: {
+                type: "string",
+                description: "场景分类ID",
+                nullable: true,
+              },
+              status: { type: "string", description: "文档状态" },
+              source_type: {
+                type: "string",
+                description: "文档来源类型",
+                nullable: true,
+              },
+              source_url: {
+                type: "string",
+                description: "文档来源URL",
+                nullable: true,
+              },
+              tags: {
+                type: "array",
+                items: { type: "string" },
+                description: "文档标签",
+                nullable: true,
+              },
+              read_count: { type: "number", description: "文档阅读次数" },
+              created_by: {
+                type: "string",
+                description: "创建人",
+                nullable: true,
+              },
+              created_at: {
+                type: "string",
+                format: "date-time",
+                description: "创建时间",
+              },
+              updated_at: {
+                type: "string",
+                format: "date-time",
+                description: "更新时间",
+              },
+              file_url: {
+                type: "string",
+                description: "文件URL",
+                nullable: true,
+              },
+            },
+            required: [
+              "id",
+              "title",
+              "summary",
+              "business_category_id",
+              "status",
+              "read_count",
+              "created_at",
+              "updated_at",
+            ],
+          },
+        },
+        meta: {
+          type: "object",
+          properties: {
+            total: { type: "number", description: "总记录数" },
+            page: { type: "number", description: "当前页码" },
+            limit: { type: "number", description: "每页记录数" },
+            total_pages: { type: "number", description: "总页数" },
+          },
+          required: ["total", "page", "limit", "total_pages"],
+        },
+      },
+      required: ["data", "meta"],
+    },
   })
   @Get()
-  async getDocuments(@Query() query: GetDocumentsQuery): Promise<any> {
+  async getDocuments(
+    @Query() query: GetDocumentsQuery,
+  ): Promise<PaginatedResponse<KnowledgeDocumentDto>> {
     return this.documentService.getDocuments(query);
   }
 
@@ -127,10 +214,14 @@ export class DocumentController {
     schema: {
       type: "object",
       properties: {
-        title: { type: "string", description: "文档标题", example: "用户手册" },
+        title: {
+          type: "string",
+          description: "文档标题，默认为file的originalname",
+          example: "用户手册",
+        },
         content: {
           type: "string",
-          description: "文档内容",
+          description: "文档内容，默认从文件内容读取",
           example: "这是一个详细的用户手册...",
         },
         category_id: {
@@ -145,7 +236,6 @@ export class DocumentController {
         },
         file: { type: "string", format: "binary", description: "上传的文件" },
       },
-      required: ["title"],
     },
   })
   @ApiResponse({ status: 201, description: "文档创建成功" })
@@ -159,10 +249,16 @@ export class DocumentController {
     @UploadedFile() file: Express.Multer.File,
     @Request() req: { user: { id: string } },
   ) {
-    // 如果有文件，记录日志
     if (file) {
       this.logger.log(`File uploaded: ${file.originalname}`);
-      // 这里可以处理文件上传逻辑
+      body.title ||= file.originalname;
+      body.content ||= file.buffer.toString();
+    }
+    if (!body.title) {
+      throw new BadRequestException("标题不能为空");
+    }
+    if (!body.content) {
+      throw new BadRequestException("内容不能为空");
     }
 
     // 从请求中获取用户ID
