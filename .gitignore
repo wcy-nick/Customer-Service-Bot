@@ -1,5 +1,6 @@
 qdrant_storage
 articles
+articles-md
 uploads
 
 # Logs

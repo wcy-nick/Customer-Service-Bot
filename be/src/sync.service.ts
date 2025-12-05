@@ -11,6 +11,7 @@ import { Prisma } from "@prisma/client";
 import Bottleneck from "bottleneck";
 import fs from "fs/promises";
 import { sanitizeWindowsPath } from "./utils/pathUtils.js";
+import * as Jinritemai from "./utils/jinritemai.js";
 
 interface Article {
   id: string;
@@ -49,6 +50,7 @@ export class SyncService {
   private readonly baseURL: string =
     "https://school.jinritemai.com/api/eschool/v2/library";
   private readonly articlesDir: string = "articles";
+  private readonly mdDir: string = "articles-md";
   private readonly merchantID: string = "11593";
   private readonly limiter: Bottleneck;
   private readonly logger = new Logger(SyncService.name);
@@ -161,6 +163,7 @@ export class SyncService {
     });
 
     await fs.mkdir(this.articlesDir, { recursive: true });
+    await fs.mkdir(this.mdDir, { recursive: true });
 
     try {
       await this.executeDouyinSync(mode, syncJob.id);
@@ -246,7 +249,7 @@ export class SyncService {
               article.update_timestamp,
               menuItem.update_at,
             );
-            await this.saveArticleJSON(article);
+            await this.saveArticle(article);
 
             // 更新处理计数
             processedCount++;
@@ -387,16 +390,28 @@ export class SyncService {
     };
   }
 
-  private async saveJSON(data: object, filePath: string): Promise<void> {
+  private async saveJSON(filePath: string, data: object): Promise<void> {
     return fs.writeFile(filePath, JSON.stringify(data, null, 2), "utf-8");
   }
 
-  public async saveArticleJSON(article: Article): Promise<void> {
+  public async saveArticle(article: Article): Promise<void> {
     const sanitizedName = sanitizeWindowsPath(article.name);
-    return this.saveJSON(
-      article.content,
+
+    const saveJSON = this.saveJSON(
       `${this.articlesDir}/${article.id}-${article.update_timestamp}-${sanitizedName}.json`,
+      article.content,
     );
+
+    const md = Jinritemai.parse(
+      article.content as unknown as Jinritemai.Schema,
+    );
+    const saveMD = fs.writeFile(
+      `${this.mdDir}/${article.id}-${article.update_timestamp}-${sanitizedName}.md`,
+      md,
+      "utf-8",
+    );
+
+    await Promise.all([saveJSON, saveMD]);
   }
 
   private async readArticleList(): Promise<
