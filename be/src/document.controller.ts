@@ -25,7 +25,7 @@ import type {
   CreateDocumentInput,
   PaginatedResponse,
 } from "./types/types";
-import { AuthGuard } from "@nestjs/passport";
+
 import { FileInterceptor } from "@nestjs/platform-express";
 import type { Express } from "express";
 import {
@@ -38,6 +38,7 @@ import {
   ApiConsumes,
   ApiBearerAuth,
 } from "@nestjs/swagger";
+import { JwtAuthGuard } from "./auth/jwt-auth.guard";
 
 @ApiTags("documents")
 @Controller("api/documents")
@@ -241,7 +242,7 @@ export class DocumentController {
   @ApiResponse({ status: 201, description: "文档创建成功" })
   @ApiResponse({ status: 400, description: "无效的请求参数" })
   @ApiResponse({ status: 401, description: "未授权" })
-  @UseGuards(AuthGuard("jwt"))
+  @UseGuards(JwtAuthGuard)
   @Post()
   @UseInterceptors(FileInterceptor("file"))
   async createDocument(
@@ -318,7 +319,7 @@ export class DocumentController {
   @ApiResponse({ status: 400, description: "无效的请求参数" })
   @ApiResponse({ status: 401, description: "未授权" })
   @ApiResponse({ status: 404, description: "文档不存在" })
-  @UseGuards(AuthGuard("jwt"))
+  @UseGuards(JwtAuthGuard)
   @Put(":id")
   async updateDocument(
     @Param("id") id: string,
@@ -335,7 +336,7 @@ export class DocumentController {
   @ApiResponse({ status: 200, description: "文档删除成功" })
   @ApiResponse({ status: 401, description: "未授权" })
   @ApiResponse({ status: 404, description: "文档不存在" })
-  @UseGuards(AuthGuard("jwt"))
+  @UseGuards(JwtAuthGuard)
   @Delete(":id")
   async deleteDocument(@Param("id") id: string): Promise<void> {
     return this.documentService.deleteDocument(id);
@@ -363,7 +364,7 @@ export class DocumentController {
   })
   @ApiResponse({ status: 401, description: "未授权" })
   @ApiResponse({ status: 404, description: "文档不存在" })
-  @UseGuards(AuthGuard("jwt"))
+  @UseGuards(JwtAuthGuard)
   @Post(":id/publish")
   async publishDocument(
     @Param("id") id: string,
@@ -393,7 +394,7 @@ export class DocumentController {
   })
   @ApiResponse({ status: 401, description: "未授权" })
   @ApiResponse({ status: 404, description: "文档不存在" })
-  @UseGuards(AuthGuard("jwt"))
+  @UseGuards(JwtAuthGuard)
   @Post(":id/archive")
   async archiveDocument(
     @Param("id") id: string,
@@ -407,7 +408,7 @@ export class DocumentController {
   @ApiResponse({ status: 200, description: "文档向量化成功" })
   @ApiResponse({ status: 401, description: "未授权" })
   @ApiResponse({ status: 404, description: "文档不存在" })
-  @UseGuards(AuthGuard("jwt"))
+  @UseGuards(JwtAuthGuard)
   @Post(":id/vectorize")
   async vectorizeDocument(@Param("id") id: string): Promise<void> {
     return this.documentService.vectorizeDocumentById(id);
@@ -499,7 +500,7 @@ export class DocumentController {
   })
   @ApiResponse({ status: 401, description: "未授权" })
   @ApiResponse({ status: 404, description: "文档或版本不存在" })
-  @UseGuards(AuthGuard("jwt"))
+  @UseGuards(JwtAuthGuard)
   @Post(":id/rollback/:version")
   async rollbackDocument(
     @Param("id") id: string,

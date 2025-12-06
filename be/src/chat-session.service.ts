@@ -333,13 +333,14 @@ export class ChatSessionService {
     const chain = model.pipe(parser);
 
     // RAG过程：获取与用户查询相关的上下文
-    const retrievedChunks = await this.qdrantService.retrieveRelevantChunks(
-      data.content,
-      {
-        path: data.path,
-      },
-    );
-    const context = this.qdrantService.buildContext(retrievedChunks);
+    const empty = await this.qdrantService.ensureCollection(userId);
+    this.logger.verbose(`Collection ${userId} was empty: ${empty}`);
+    const retrievedChunks = empty
+      ? []
+      : await this.qdrantService.retrieveRelevantChunks(userId, data.content, {
+          path: data.path,
+        });
+    const context = QdrantService.buildContext(retrievedChunks);
 
     // 拼接适合RAG的prompt
     const prompt = `基于以下上下文信息回答用户问题：

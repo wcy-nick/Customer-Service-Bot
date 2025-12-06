@@ -16,12 +16,14 @@ export class SearchService {
    * @returns 搜索结果列表和总数
    */
   async semanticSearch(
+    userId: string,
     query: SemanticSearchQuery,
   ): Promise<{ results: SearchResultDto[]; total: number }> {
     const { query: searchQuery, limit = 10, threshold = 0.5 } = query;
 
     // 从向量数据库获取相关文档片段
     const relevantChunks = await this.qdrantService.retrieveRelevantChunks(
+      userId,
       searchQuery,
       { limit },
     );
@@ -43,6 +45,7 @@ export class SearchService {
    * @returns 相关问题列表
    */
   async getRelatedQuestions(
+    userId: string,
     request: RelatedQuestionsRequest,
   ): Promise<{ questions: string[] }> {
     const { question } = request;
@@ -52,7 +55,7 @@ export class SearchService {
     // 这里暂时使用简单的逻辑来演示
 
     // 1. 首先进行语义搜索，获取相关文档片段
-    await this.qdrantService.retrieveRelevantChunks(question);
+    await this.qdrantService.retrieveRelevantChunks(userId, question);
 
     // 2. 从相关文档中提取或生成相关问题
     // 实际项目中，可能需要使用LLM来生成相关问题

@@ -9,7 +9,6 @@ import {
   HttpStatus,
 } from "@nestjs/common";
 import { FileInterceptor } from "@nestjs/platform-express";
-import { AuthGuard } from "@nestjs/passport";
 import { UploadService } from "./upload.service";
 import { FileUploadResponse } from "./types/upload";
 import {
@@ -19,6 +18,7 @@ import {
   ApiConsumes,
   ApiBody,
 } from "@nestjs/swagger";
+import { JwtAuthGuard } from "./auth/jwt-auth.guard";
 
 @ApiTags("upload")
 @Controller("api/upload")
@@ -52,7 +52,7 @@ export class UploadController {
   })
   @ApiResponse({ status: 400, description: "文件不能为空" })
   @ApiResponse({ status: 401, description: "未授权访问" })
-  @UseGuards(AuthGuard("jwt"))
+  @UseGuards(JwtAuthGuard)
   @Post("document")
   @UseInterceptors(FileInterceptor("file"))
   async uploadDocumentAttachment(
@@ -93,7 +93,7 @@ export class UploadController {
   })
   @ApiResponse({ status: 400, description: "文件或会话ID不能为空" })
   @ApiResponse({ status: 401, description: "未授权访问" })
-  @UseGuards(AuthGuard("jwt"))
+  @UseGuards(JwtAuthGuard)
   @Post("chat-attachment")
   @UseInterceptors(FileInterceptor("file"))
   async uploadChatAttachment(

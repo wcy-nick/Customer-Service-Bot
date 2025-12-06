@@ -1,4 +1,12 @@
-import { Controller, Get, Post, Query, Body } from "@nestjs/common";
+import {
+  Controller,
+  Get,
+  Post,
+  Query,
+  Body,
+  UseGuards,
+  Request,
+} from "@nestjs/common";
 import { SearchService } from "./search.service";
 import type {
   SemanticSearchQuery,
@@ -12,9 +20,11 @@ import {
   ApiQuery,
   ApiBody,
 } from "@nestjs/swagger";
+import { JwtAuthGuard } from "./auth/jwt-auth.guard";
 
 @ApiTags("search")
 @Controller("api/chat")
+@UseGuards(JwtAuthGuard)
 export class SearchController {
   constructor(private readonly searchService: SearchService) {}
 
@@ -62,9 +72,10 @@ export class SearchController {
   })
   @Get("semantic-search")
   async semanticSearch(
+    @Request() req: { user: { id: string } },
     @Query() query: SemanticSearchQuery,
   ): Promise<{ results: SearchResultDto[]; total: number }> {
-    return this.searchService.semanticSearch(query);
+    return this.searchService.semanticSearch(req.user.id, query);
   }
 
   /**
@@ -103,8 +114,9 @@ export class SearchController {
   })
   @Post("related-questions")
   async getRelatedQuestions(
+    @Request() req: { user: { id: string } },
     @Body() request: RelatedQuestionsRequest,
   ): Promise<{ questions: string[] }> {
-    return this.searchService.getRelatedQuestions(request);
+    return this.searchService.getRelatedQuestions(req.user.id, request);
   }
 }

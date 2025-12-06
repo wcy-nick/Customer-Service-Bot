@@ -11,7 +11,7 @@ import {
   UseGuards,
   RequestMethod,
 } from "@nestjs/common";
-import { AuthGuard } from "@nestjs/passport";
+import { JwtAuthGuard } from "./auth/jwt-auth.guard";
 import { ChatSessionService } from "./chat-session.service";
 import { Sse } from "@nestjs/common";
 import {
@@ -43,7 +43,7 @@ export interface ServerSentEvent<T = any> {
 
 @ApiTags("chat-sessions")
 @Controller("api/chat/sessions")
-@UseGuards(AuthGuard("jwt"))
+@UseGuards(JwtAuthGuard)
 export class ChatSessionController {
   constructor(private readonly chatSessionService: ChatSessionService) {}
 

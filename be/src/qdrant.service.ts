@@ -18,7 +18,7 @@ export interface RetrievedChunk extends DocumentChunk {
 @Injectable()
 export class QdrantService implements OnModuleInit {
   private client: QdrantClient;
-  private readonly qdrantCollection: string;
+  public readonly defaultCollection: string;
   private readonly resetOnStartup: boolean;
   private readonly logger = new Logger(QdrantService.name);
 
@@ -33,45 +33,47 @@ export class QdrantService implements OnModuleInit {
       apiKey: this.configService.get("QDRANT_API_KEY"),
     });
 
-    this.qdrantCollection =
+    this.defaultCollection =
       this.configService.get("QDRANT_COLLECTION") || "documents";
     this.resetOnStartup =
       this.configService.get("QDRANT_RESET_ON_STARTUP") === "true";
   }
 
   async onModuleInit() {
-    await this.ensureCollection(this.resetOnStartup);
+    await this.ensureCollection(this.defaultCollection, this.resetOnStartup);
   }
 
-  async createCollection() {
-    await this.client.createCollection(this.qdrantCollection, {
+  async createCollection(name: string) {
+    await this.client.createCollection(name, {
       vectors: {
         size: 1024,
         distance: "Cosine",
       },
     });
-    await this.client.createPayloadIndex(this.qdrantCollection, {
+    await this.client.createPayloadIndex(name, {
       field_name: "path",
       field_schema: "keyword",
       wait: true,
     });
   }
 
-  async resetCollection() {
-    await this.client.deleteCollection(this.qdrantCollection);
-    await this.createCollection();
+  async resetCollection(name: string) {
+    await this.client.deleteCollection(name);
+    await this.createCollection(name);
   }
 
-  async ensureCollection(reset: boolean = false) {
-    const exists = await this.client.collectionExists(this.qdrantCollection);
+  async ensureCollection(name: string, reset: boolean = false) {
+    const { exists } = await this.client.collectionExists(name);
 
     if (exists) {
       if (reset) {
-        await this.resetCollection();
+        await this.resetCollection(name);
       }
     } else {
-      await this.createCollection();
+      await this.createCollection(name);
     }
+
+    return !exists || reset;
   }
 
   async getCollections() {
@@ -81,7 +83,10 @@ export class QdrantService implements OnModuleInit {
     return collections;
   }
 
-  async upsertDocuments(documents: DocumentChunk[]): Promise<void> {
+  async upsertDocuments(
+    collection: string,
+    documents: DocumentChunk[],
+  ): Promise<void> {
     // 使用embed方法获取嵌入向量
     const texts = documents.map((doc) => doc.text);
     this.logger.verbose(`Embedding ${texts.length} documents`);
@@ -99,18 +104,19 @@ export class QdrantService implements OnModuleInit {
     }));
 
     this.logger.verbose(
-      `Upserting ${points.length} points to collection ${this.qdrantCollection}`,
+      `Upserting ${points.length} points to collection ${collection}`,
     );
-    await this.client.upsert(this.qdrantCollection, {
+    await this.client.upsert(collection, {
       wait: true,
       points,
     });
     this.logger.verbose(
-      `Upserted ${points.length} points to collection ${this.qdrantCollection}`,
+      `Upserted ${points.length} points to collection ${collection}`,
     );
   }
 
   async retrieveRelevantChunks(
+    collection: string,
     query: string,
     options: {
       limit?: number;
@@ -119,6 +125,7 @@ export class QdrantService implements OnModuleInit {
   ): Promise<RetrievedChunk[]> {
     const queryVec = await this.embeddingService.embedQuery(query);
 
+    const limit = options.limit || 5;
     const pathFilter = options.path
       ? {
           key: "path",
@@ -127,15 +134,21 @@ export class QdrantService implements OnModuleInit {
           },
         }
       : {};
-    // 修复Qdrant客户端搜索调用格式
-    const resp = await this.client.search(this.qdrantCollection, {
-      vector: queryVec,
-      limit: options.limit || 5,
-      filter: { must: [pathFilter] },
-    });
+    const [systemResp, userResp] = await Promise.all([
+      this.client.search(this.defaultCollection, {
+        vector: queryVec,
+        limit,
+        filter: { must: [pathFilter] },
+      }),
+      this.client.search(collection, {
+        vector: queryVec,
+        limit,
+      }),
+    ]);
+    userResp.push(...systemResp);
 
     // 转换结果
-    const results = resp.map((result) => {
+    const results = userResp.map((result) => {
       const payload = result.payload! as {
         text: string;
         url: string;
@@ -162,7 +175,7 @@ export class QdrantService implements OnModuleInit {
     return results;
   }
 
-  buildContext(
+  static buildContext(
     retrievedChunks: RetrievedChunk[],
     minScore = 0.5,
     maxLength = 2000,

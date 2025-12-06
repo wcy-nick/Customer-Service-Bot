@@ -31,9 +31,11 @@ interface KnowledgeDocumentModel {
   updatedAt: Date;
   fileUrl?: string | null;
 }
+
 interface KnowledgeDocumentDetailModel extends KnowledgeDocumentModel {
   content?: string | null;
 }
+
 @Injectable()
 export class DocumentService {
   private readonly logger = new Logger(QdrantService.name);
@@ -275,7 +277,13 @@ export class DocumentService {
     const document =
       await this.prismaService.client.knowledgeDocument.findUnique({
         where: { id },
-        select: { title: true, content: true, id: true, sourceUrl: true },
+        select: {
+          title: true,
+          content: true,
+          id: true,
+          sourceUrl: true,
+          createdBy: true,
+        },
       });
 
     if (!document?.content) {
@@ -283,18 +291,21 @@ export class DocumentService {
         `Document with id ${id} not found or has no content`,
       );
     }
-    return this.vectorizeDocument({
+    return this.vectorizeDocument(document.createdBy || "", {
       content: document.content,
       url: document.sourceUrl || "",
       path: [],
     });
   }
 
-  async vectorizeDocument(document: {
-    content: string;
-    path: string[];
-    url: string;
-  }): Promise<void> {
+  async vectorizeDocument(
+    collection: string,
+    document: {
+      content: string;
+      path: string[];
+      url: string;
+    },
+  ): Promise<void> {
     // 文本分割
     const chunks = await this.textSplitter.splitText(document.content);
 
@@ -307,7 +318,9 @@ export class DocumentService {
     }));
 
     // 调用QdrantService进行向量存储
-    await this.qdrantService.upsertDocuments(documents);
+    collection ||= this.qdrantService.defaultCollection;
+    await this.qdrantService.ensureCollection(collection);
+    await this.qdrantService.upsertDocuments(collection, documents);
   }
 
   async getDocumentVersions(id: string): Promise<DocumentVersionDto[]> {

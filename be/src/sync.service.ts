@@ -235,7 +235,7 @@ export class SyncService {
             "",
           );
           this.logger.verbose(`Vectorizing article ${menuItem.id}`);
-          await this.documentService.vectorizeDocument({
+          await this.documentService.vectorizeDocument("", {
             content: markdown,
             url,
             path,
