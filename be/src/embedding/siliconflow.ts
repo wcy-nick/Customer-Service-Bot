@@ -13,7 +13,9 @@ export class SilconflowEmbeddingService extends BareEmbeddingService {
     super();
     const apiKey = this.configService.get<string>("SILICONFLOW_API_KEY");
     const model = this.configService.get<string>("EMBEDDING_MODEL");
-    const dimensions = this.configService.get<number>("EMBEDDING_DIMENSIONS");
+    const dimensions = parseInt(
+      this.configService.get<string>("EMBEDDING_DIMENSIONS") || "1024",
+    );
 
     if (!apiKey) {
       throw new Error("SILICONFLOW_API_KEY is not set");
@@ -21,6 +23,6 @@ export class SilconflowEmbeddingService extends BareEmbeddingService {
 
     this.apiKey = apiKey;
     this.model = model || "BAAI/bge-large-zh-v1.5";
-    this.dimensions = dimensions || 1024;
+    this.dimensions = dimensions;
   }
 }

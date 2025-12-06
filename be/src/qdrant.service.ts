@@ -27,16 +27,16 @@ export class QdrantService implements OnModuleInit {
     private readonly embeddingService: EmbeddingService,
   ) {
     this.client = new QdrantClient({
-      url: this.configService.get<string>("QDRANT_URL"),
-      host: this.configService.get<string>("QDRANT_HOST"),
-      port: this.configService.get<number>("QDRANT_PORT"),
-      apiKey: this.configService.get<string>("QDRANT_API_KEY"),
+      url: this.configService.get("QDRANT_URL"),
+      host: this.configService.get("QDRANT_HOST"),
+      port: parseInt(this.configService.get("QDRANT_PORT") || "6333"),
+      apiKey: this.configService.get("QDRANT_API_KEY"),
     });
 
     this.qdrantCollection =
-      this.configService.get<string>("QDRANT_COLLECTION") || "documents";
+      this.configService.get("QDRANT_COLLECTION") || "documents";
     this.resetOnStartup =
-      this.configService.get<boolean>("QDRANT_RESET_ON_STARTUP") || false;
+      this.configService.get("QDRANT_RESET_ON_STARTUP") === "true";
   }
 
   async onModuleInit() {

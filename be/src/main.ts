@@ -25,7 +25,9 @@ async function bootstrap() {
   const documentFactory = () => SwaggerModule.createDocument(app, config);
   SwaggerModule.setup("api", app, documentFactory);
 
-  await app.listen(configService.get<number>("PORT") ?? 3001);
+  const port = parseInt(configService.get("PORT") || "3001");
+  await app.listen(port);
+  console.log(`Application is running on: ${await app.getUrl()}`);
 }
 bootstrap().catch((error) => {
   console.error("Error starting application:", error);

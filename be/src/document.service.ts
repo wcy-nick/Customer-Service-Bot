@@ -44,8 +44,10 @@ export class DocumentService {
     private readonly qdrantService: QdrantService,
     private readonly configService: ConfigService,
   ) {
-    const chunkSize = this.configService.get<number>("CHUNK_SIZE") || 1000;
-    const chunkOverlap = this.configService.get<number>("CHUNK_OVERLAP") || 200;
+    const chunkSize = parseInt(this.configService.get("CHUNK_SIZE") || "1000");
+    const chunkOverlap = parseInt(
+      this.configService.get("CHUNK_OVERLAP") || "200",
+    );
     this.logger.verbose(
       `Initializing DocumentService with chunkSize: ${chunkSize}, chunkOverlap: ${chunkOverlap}`,
     );

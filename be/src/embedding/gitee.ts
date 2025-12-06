@@ -13,7 +13,9 @@ export class GiteeEmbeddingService extends BareEmbeddingService {
     super();
     const apiKey = this.configService.get<string>("GITEE_API_KEY");
     const model = this.configService.get<string>("EMBEDDING_MODEL");
-    const dimensions = this.configService.get<number>("EMBEDDING_DIMENSIONS");
+    const dimensions = parseInt(
+      this.configService.get<string>("EMBEDDING_DIMENSIONS") || "1024",
+    );
 
     if (!apiKey) {
       throw new Error("GITEE_API_KEY is not set");
@@ -21,6 +23,6 @@ export class GiteeEmbeddingService extends BareEmbeddingService {
 
     this.apiKey = apiKey;
     this.model = model || "bge-m3";
-    this.dimensions = dimensions || 1024;
+    this.dimensions = dimensions;
   }
 }
