@@ -6,13 +6,13 @@ import {
   Body,
   Param,
   UseGuards,
+  BadRequestException,
 } from "@nestjs/common";
 import { SyncService } from "./sync.service";
 import {
   type SyncJobsQuery,
   type SyncJobDetailDto,
   type DouyinKnowledgeSyncInput,
-  type SyncJobResponse,
   type PaginatedResponse,
   SyncMode,
 } from "./types/types";
@@ -164,21 +164,17 @@ export class SyncController {
   @ApiResponse({
     status: 200,
     description: "同步作业响应",
-    schema: {
-      type: "object",
-      properties: {
-        job_id: { type: "string", description: "作业ID" },
-        status: { type: "string", description: "作业状态" },
-        message: { type: "string", description: "响应消息" },
-      },
-    },
+    schema: {},
   })
   @Post("douyin-knowledge")
   async syncDouyinKnowledge(
     @Body() body: DouyinKnowledgeSyncInput | undefined,
-  ): Promise<SyncJobResponse> {
+  ): Promise<void> {
     const mode = body?.mode || SyncMode.Incremental;
-    return this.syncService.syncDouyinKnowledge(mode);
+    if (mode !== SyncMode.Incremental && mode !== SyncMode.Full) {
+      throw new BadRequestException("Invalid sync mode");
+    }
+    await this.syncService.syncDouyinKnowledge(mode);
   }
 
   /**

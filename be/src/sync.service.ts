@@ -3,7 +3,6 @@ import { PrismaService } from "./prisma.service";
 import {
   SyncJobsQuery,
   SyncJobDetailDto,
-  SyncJobResponse,
   PaginatedResponse,
   SyncMode,
 } from "./types/types";
@@ -156,47 +155,18 @@ export class SyncService {
    * @param input 同步输入参数
    * @returns 同步作业响应
    */
-  async syncDouyinKnowledge(mode: SyncMode): Promise<SyncJobResponse> {
-    // 创建同步作业记录
-    const syncJob = await this.prismaService.client.dataSourceSync.create({
-      data: {
-        sourceType: "douyin-knowledge",
-        syncType: mode,
-        status: "pending",
-      },
-    });
-
+  async syncDouyinKnowledge(mode: SyncMode): Promise<void> {
     await fs.mkdir(this.articlesDir, { recursive: true });
     await fs.mkdir(this.mdDir, { recursive: true });
 
-    try {
-      await this.executeDouyinSync(mode, syncJob.id);
-    } catch (error) {
-      // 更新作业状态为失败
-      await this.prismaService.client.dataSourceSync.update({
-        where: { id: syncJob.id },
-        data: {
-          status: "failed",
-          errorMessage: error instanceof Error ? error.message : String(error),
-          completedAt: new Date(),
-        },
-      });
-    }
-
-    return {
-      job_id: syncJob.id,
-      status: "pending",
-    };
+    await this.executeDouyinSync(mode);
   }
 
   /**
    * 执行抖音知识同步
    * @param jobId 作业ID
    */
-  private async executeDouyinSync(
-    mode: SyncMode,
-    jobId: string,
-  ): Promise<void> {
+  private async executeDouyinSync(mode: SyncMode): Promise<void> {
     const articles = mode === SyncMode.Full ? [] : await this.readArticleList();
     const menu = await this.fetchMerchantMenu();
     const articleInfo = this.parseMenu(menu);
@@ -215,17 +185,8 @@ export class SyncService {
     await Promise.all(
       incrementalArticles.map((menuItem) =>
         this.limiter.schedule(async () => {
-          // 创建作业任务
-          await this.prismaService.client.jobQueue.create({
-            data: {
-              queueName: `sync_${jobId}`,
-              jobName: `sync_article_${menuItem.id}`,
-              payload: { articleId: menuItem.id },
-              status: "waiting",
-            },
-          });
-
           // 执行文章同步
+          this.logger.verbose(`Fetching article ${menuItem.id}`);
           const json = await this.fetchArticle(menuItem.id);
           const article = this.parseArticle(json);
           article.update_timestamp = Math.max(
@@ -233,6 +194,7 @@ export class SyncService {
             menuItem.update_at,
           );
           const markdown = await this.saveArticle(article);
+          this.logger.verbose(`Saving article ${menuItem.id}`);
           const document = await this.documentService.createDocument(
             {
               content: markdown,
@@ -240,7 +202,9 @@ export class SyncService {
             },
             "",
           );
+          this.logger.verbose(`Vectorizing article ${menuItem.id}`);
           await this.documentService.vectorizeDocument(markdown, document.id);
+          this.logger.verbose(`Finish article ${menuItem.id}`);
         }),
       ),
     );

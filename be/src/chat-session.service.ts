@@ -1,4 +1,4 @@
-import { Injectable, HttpException, HttpStatus } from "@nestjs/common";
+import { Injectable, HttpException, HttpStatus, Logger } from "@nestjs/common";
 import { PrismaService } from "./prisma.service";
 import { QdrantService } from "./qdrant.service";
 import { ConfigService } from "@nestjs/config";
@@ -14,26 +14,30 @@ import {
   SendMessageDto,
   MessageType,
   MessageFeedbackDto,
+  ModelName,
 } from "./types/chat-session";
 import { HumanMessage } from "@langchain/core/messages";
 import { StringOutputParser } from "@langchain/core/output_parsers";
 import { ChatZhipuAI } from "@langchain/community/chat_models/zhipuai";
+
 @Injectable()
 export class ChatSessionService {
+  private readonly logger = new Logger(ChatSessionService.name);
+
   constructor(
     private readonly prismaService: PrismaService,
     private readonly qdrantService: QdrantService,
     private readonly configService: ConfigService,
   ) {}
 
-  createChatModel(): ChatZhipuAI {
+  createChatModel(name: ModelName): ChatZhipuAI {
     const apiKey = this.configService.get<string>("ZHIPU_API_KEY");
     if (!apiKey) {
       throw new Error("ZHIPU_API_KEY is not set");
     }
     return new ChatZhipuAI({
       apiKey,
-      model: "glm-4",
+      model: name,
     });
   }
 
@@ -320,7 +324,7 @@ export class ChatSessionService {
     });
 
     // 创建LLM模型实例
-    const model = this.createChatModel();
+    const model = this.createChatModel(data.model || ModelName.GLM4);
 
     // 使用StringOutputParser来处理模型输出
     const parser = new StringOutputParser();
@@ -348,27 +352,37 @@ ${context}
     const accumulatedResponse: string[] = [];
 
     const stream = await chain.stream(messages);
+    this.logger.verbose(`Answering ${data.content}`);
     try {
       // 处理流中的每个块
       for await (const chunk of stream) {
-        accumulatedResponse.push(chunk);
-        yield chunk;
+        const trimmed = chunk.trim();
+        if (!trimmed) {
+          continue;
+        }
+        accumulatedResponse.push(trimmed);
+        yield trimmed;
       }
-    } catch {
+    } catch (error) {
+      this.logger.error("Error streaming response:", error);
+
       const errorMessage = "ErrorGenerating";
       yield errorMessage;
 
       accumulatedResponse.push(errorMessage);
     }
 
+    this.logger.verbose(`Answered ${data.content}`);
+    const joinedResponse = accumulatedResponse.join("");
     // 保存助手回复到数据库
     await this.prismaService.client.chatMessage.create({
       data: {
         sessionId,
         role: "assistant",
-        content: accumulatedResponse.join(""),
+        content: joinedResponse,
       },
     });
+    this.logger.verbose(`Saved ${joinedResponse} for ${data.content}`);
   }
 
   /**

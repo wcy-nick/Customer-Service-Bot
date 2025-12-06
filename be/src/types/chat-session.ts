@@ -67,7 +67,13 @@ export interface GetMessagesQuery {
 }
 
 // 发送消息请求DTO
+export enum ModelName {
+  GLM4_5 = "glm-4.5-flash",
+  GLM4 = "glm-4-flash-250414",
+}
+
 export interface SendMessageDto {
+  model?: ModelName;
   content: string;
   message_type?: MessageType;
   audio_file_path?: string;

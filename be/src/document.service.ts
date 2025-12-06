@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from "@nestjs/common";
+import { Injectable, Logger, NotFoundException } from "@nestjs/common";
 import { PrismaService } from "./prisma.service";
 import {
   KnowledgeDocumentDto,
@@ -13,6 +13,7 @@ import { Prisma } from "@prisma/client";
 import { RecursiveCharacterTextSplitter } from "@langchain/textsplitters";
 import { QdrantService } from "./qdrant.service";
 import { randomUUID } from "crypto";
+import { ConfigService } from "@nestjs/config";
 
 interface KnowledgeDocumentModel {
   id: string;
@@ -35,10 +36,24 @@ interface KnowledgeDocumentDetailModel extends KnowledgeDocumentModel {
 }
 @Injectable()
 export class DocumentService {
+  private readonly logger = new Logger(QdrantService.name);
+  textSplitter: RecursiveCharacterTextSplitter;
+
   constructor(
     private readonly prismaService: PrismaService,
     private readonly qdrantService: QdrantService,
-  ) {}
+    private readonly configService: ConfigService,
+  ) {
+    const chunkSize = this.configService.get<number>("CHUNK_SIZE") || 1000;
+    const chunkOverlap = this.configService.get<number>("CHUNK_OVERLAP") || 200;
+    this.logger.verbose(
+      `Initializing DocumentService with chunkSize: ${chunkSize}, chunkOverlap: ${chunkOverlap}`,
+    );
+    this.textSplitter = new RecursiveCharacterTextSplitter({
+      chunkSize,
+      chunkOverlap,
+    });
+  }
 
   // 修改Prisma访问方式，使用正确的模型名称
   async getDocuments(
@@ -274,12 +289,7 @@ export class DocumentService {
 
   async vectorizeDocument(content: string, documentId: string): Promise<void> {
     // 文本分割
-    const textSplitter = new RecursiveCharacterTextSplitter({
-      chunkSize: 1000,
-      chunkOverlap: 200,
-    });
-
-    const chunks = await textSplitter.splitText(content);
+    const chunks = await this.textSplitter.splitText(content);
 
     // 为每个chunk添加元数据
     const documents = chunks.map((chunk) => ({

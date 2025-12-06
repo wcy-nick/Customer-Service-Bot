@@ -2,7 +2,7 @@ import { Injectable, Logger, OnModuleInit } from "@nestjs/common";
 import { QdrantClient } from "@qdrant/js-client-rest";
 import { randomUUID } from "crypto";
 import { ConfigService } from "@nestjs/config";
-import { ZhipuEmbeddingService } from "./embedding/zhipu";
+import { BaishanEmbeddingService as EmbeddingService } from "./embedding/baishan";
 
 export interface DocumentChunk {
   id: string;
@@ -24,7 +24,7 @@ export class QdrantService implements OnModuleInit {
 
   constructor(
     private readonly configService: ConfigService,
-    private readonly embeddingService: ZhipuEmbeddingService,
+    private readonly embeddingService: EmbeddingService,
   ) {
     this.client = new QdrantClient({
       url: this.configService.get<string>("QDRANT_URL"),
@@ -79,6 +79,7 @@ export class QdrantService implements OnModuleInit {
   async upsertDocuments(documents: DocumentChunk[]): Promise<void> {
     // 使用embed方法获取嵌入向量
     const texts = documents.map((doc) => doc.content);
+    this.logger.verbose(`Embedding ${texts.length} documents`);
     const vectors = await this.embeddingService.embedDocuments(texts);
 
     // 创建points数组
@@ -113,13 +114,13 @@ export class QdrantService implements OnModuleInit {
     const queryVec = await this.embeddingService.embedQuery(query);
 
     // 修复Qdrant客户端搜索调用格式
-    const results = await this.client.search(this.qdrantCollection, {
+    const resp = await this.client.search(this.qdrantCollection, {
       vector: queryVec,
       limit,
     });
 
     // 转换结果
-    return results.map((result) => {
+    const results = resp.map((result) => {
       const metadata = result.payload?.metadata as
         | {
             businessCategoryId: string;
@@ -134,6 +135,17 @@ export class QdrantService implements OnModuleInit {
         documentId: metadata?.documentId || "",
       };
     });
+
+    const overview = results
+      .map(
+        ({ content, score }) =>
+          `${content.substring(0, 20)}... (size: ${content.length}, score: ${score.toFixed(3)})`,
+      )
+      .join("\n");
+    this.logger.verbose(
+      `Retrieved ${overview} for query ${query} (size: ${queryVec.length})`,
+    );
+    return results;
   }
 
   async buildContext(
