@@ -18,30 +18,18 @@ export class SearchService {
   async semanticSearch(
     query: SemanticSearchQuery,
   ): Promise<{ results: SearchResultDto[]; total: number }> {
-    const {
-      query: searchQuery,
-      limit = 10,
-      threshold = 0.5,
-      business_category_id,
-    } = query;
+    const { query: searchQuery, limit = 10, threshold = 0.5 } = query;
 
     // 从向量数据库获取相关文档片段
     const relevantChunks = await this.qdrantService.retrieveRelevantChunks(
       searchQuery,
-      limit,
+      { limit },
     );
 
     // 应用阈值过滤
-    let filteredResults = relevantChunks.filter(
+    const filteredResults = relevantChunks.filter(
       (result) => result.score >= threshold,
     );
-
-    // 如果提供了业务分类ID，则进一步过滤
-    if (business_category_id) {
-      filteredResults = filteredResults.filter(
-        (result) => result.businessCategoryId === business_category_id,
-      );
-    }
 
     return {
       results: filteredResults,
@@ -64,7 +52,7 @@ export class SearchService {
     // 这里暂时使用简单的逻辑来演示
 
     // 1. 首先进行语义搜索，获取相关文档片段
-    await this.qdrantService.retrieveRelevantChunks(question, 5);
+    await this.qdrantService.retrieveRelevantChunks(question);
 
     // 2. 从相关文档中提取或生成相关问题
     // 实际项目中，可能需要使用LLM来生成相关问题

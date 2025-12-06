@@ -20,6 +20,11 @@ interface Article {
   update_timestamp: number;
 }
 
+interface Source {
+  name: string; //e.g. "规则中心"
+  node_id: string;
+}
+
 interface Response<T> {
   data: T;
 }
@@ -27,10 +32,27 @@ interface Response<T> {
 type ArticleResponse = Response<{
   article_info: {
     article_id: string;
-    content: string;
     name: string;
+    content: string;
     update_timestamp: number;
+    tags: string[];
+    cover_image: string;
+    node_id: string;
+    description: string;
+    offline_status: number;
+    view_count: number;
+    search_tags: string[];
+    action_info: object;
+    target_metas: null;
+    creator_name: string;
+    modifier_name: string;
+    create_timestamp: number;
+    show_comment: boolean;
+    redirect_obj_id: string;
+    redirect_obj_type: number;
+    is_redirect: boolean;
   };
+  sources: Source[];
 }>;
 
 interface MenuItem {
@@ -39,10 +61,15 @@ interface MenuItem {
   cover_image: string;
   create_at: number;
   update_at: number;
+  obj_type: number;
+  view_count: number;
 }
 
 type MenuResponse = Response<{
   articles: MenuItem[];
+  name: string; // e.g. "商家管理"
+  sources: Source[];
+  total: number; // e.g. 177
 }>;
 
 @Injectable()
@@ -187,23 +214,29 @@ export class SyncService {
         this.limiter.schedule(async () => {
           // 执行文章同步
           this.logger.verbose(`Fetching article ${menuItem.id}`);
-          const json = await this.fetchArticle(menuItem.id);
-          const article = this.parseArticle(json);
+          const articleResp = await this.fetchArticle(menuItem.id);
+          const article = this.parseArticle(articleResp);
           article.update_timestamp = Math.max(
             article.update_timestamp,
             menuItem.update_at,
           );
           const markdown = await this.saveArticle(article);
+          const path = articleResp.data.sources.map((source) => source.node_id);
           this.logger.verbose(`Saving article ${menuItem.id}`);
           const document = await this.documentService.createDocument(
             {
               content: markdown,
               title: article.name,
+              file_path: path.join("/"),
             },
             "",
           );
           this.logger.verbose(`Vectorizing article ${menuItem.id}`);
-          await this.documentService.vectorizeDocument(markdown, document.id);
+          await this.documentService.vectorizeDocument({
+            content: markdown,
+            id: document.id,
+            path,
+          });
           this.logger.verbose(`Finish article ${menuItem.id}`);
         }),
       ),
@@ -254,7 +287,7 @@ export class SyncService {
   }
 
   private async fetchMenu(node_id: string): Promise<MenuResponse> {
-    const url = `${this.baseURL}/article/list?node_id=${node_id}&page_size=1000`;
+    const url = `${this.baseURL}/article/list?node_id=${node_id}&page_size=100`;
     return this.fetchData(url);
   }
 

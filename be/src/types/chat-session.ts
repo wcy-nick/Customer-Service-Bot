@@ -75,9 +75,10 @@ export enum ModelName {
 export interface SendMessageDto {
   model?: ModelName;
   content: string;
-  message_type?: MessageType;
-  audio_file_path?: string;
-  image_file_path?: string;
+  type?: MessageType;
+  audioFilePath?: string;
+  imageFilePath?: string;
+  path?: string;
 }
 
 // 消息反馈请求DTO

@@ -108,7 +108,7 @@ export interface PaginatedResponse<T> {
 // 搜索相关接口
 export interface SearchResultDto {
   id: string;
-  content: string;
+  text: string;
   score: number;
   business_category_id?: string;
   document_id?: string;
@@ -170,8 +170,7 @@ export interface CreateDocumentInput {
   title: string;
   content: string;
   summary?: string;
-  business_category_id?: string;
-  scenario_category_id?: string;
+  file_path?: string;
   source_type?: "manual" | "douyin" | "wechat" | "other";
   source_url?: string;
   tags?: string[];

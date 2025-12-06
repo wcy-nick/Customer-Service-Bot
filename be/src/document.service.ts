@@ -117,11 +117,6 @@ export class DocumentService {
         skip: (page - 1) * limit,
         take: limit,
         orderBy: { [sort_by]: sort_order },
-        // 移除不支持的include
-        include: {
-          businessCategory: { select: { id: true, name: true } },
-          scenarioCategory: { select: { id: true, name: true } },
-        },
       });
 
     // 转换为DTO
@@ -160,17 +155,19 @@ export class DocumentService {
     input: CreateDocumentInput,
     userId: string,
   ): Promise<KnowledgeDocumentDto> {
-    const data = userId
-      ? {
-          ...input,
-          createdBy: userId,
-          updatedBy: userId,
-          status: "draft",
-          readCount: 0,
-        }
-      : input;
+    const data = {
+      title: input.title,
+      content: input.content,
+      summary: input.summary,
+      filePath: input.file_path,
+      sourceType: input.source_type,
+      sourceUrl: input.source_url,
+      tags: input.tags,
+      status: "draft",
+      readCount: 0,
+    };
     const document = await this.prismaService.client.knowledgeDocument.create({
-      data,
+      data: userId ? { ...data, createdBy: userId, updatedBy: userId } : data,
     });
 
     return this.mapToDto(document);
@@ -286,18 +283,27 @@ export class DocumentService {
         `Document with id ${id} not found or has no content`,
       );
     }
-    return this.vectorizeDocument(document.content, document.id);
+    return this.vectorizeDocument({
+      content: document.content,
+      id: document.id,
+      path: [],
+    });
   }
 
-  async vectorizeDocument(content: string, documentId: string): Promise<void> {
+  async vectorizeDocument(document: {
+    content: string;
+    id: string;
+    path: string[];
+  }): Promise<void> {
     // 文本分割
-    const chunks = await this.textSplitter.splitText(content);
+    const chunks = await this.textSplitter.splitText(document.content);
 
     // 为每个chunk添加元数据
-    const documents = chunks.map((chunk) => ({
+    const documents = chunks.map((chunk, index) => ({
       id: randomUUID(),
-      content: chunk,
-      documentId,
+      text: chunk,
+      documentId: document.id,
+      path: [...document.path, index.toString()],
     }));
 
     // 调用QdrantService进行向量存储
@@ -305,7 +311,7 @@ export class DocumentService {
 
     // 更新文档的向量化状态
     await this.prismaService.client.knowledgeDocument.update({
-      where: { id: documentId },
+      where: { id: document.id },
       data: { isVectorized: true },
     });
   }

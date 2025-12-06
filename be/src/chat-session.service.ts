@@ -308,9 +308,9 @@ export class ChatSessionService {
         sessionId,
         role: "user",
         content: data.content,
-        userMessageType: data.message_type,
-        audioFilePath: data.audio_file_path,
-        imageFilePath: data.image_file_path,
+        userMessageType: data.type,
+        audioFilePath: data.audioFilePath,
+        imageFilePath: data.imageFilePath,
       },
     });
 
@@ -333,7 +333,13 @@ export class ChatSessionService {
     const chain = model.pipe(parser);
 
     // RAG过程：获取与用户查询相关的上下文
-    const context = await this.qdrantService.buildContext(data.content);
+    const retrievedChunks = await this.qdrantService.retrieveRelevantChunks(
+      data.content,
+      {
+        path: data.path,
+      },
+    );
+    const context = this.qdrantService.buildContext(retrievedChunks);
 
     // 拼接适合RAG的prompt
     const prompt = `基于以下上下文信息回答用户问题：
@@ -382,7 +388,9 @@ ${context}
         content: joinedResponse,
       },
     });
-    this.logger.verbose(`Saved ${joinedResponse} for ${data.content}`);
+    this.logger.verbose(
+      `Saved ${joinedResponse.substring(0, 30)}... for ${data.content}`,
+    );
   }
 
   /**

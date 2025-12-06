@@ -22,16 +22,17 @@ import {
   ApiParam,
   ApiBody,
 } from "@nestjs/swagger";
-import type {
-  ChatSessionDto,
-  ChatSessionDetailDto,
-  CreateChatSessionDto,
-  GetChatSessionsQuery,
-  PaginatedResponse,
-  UpdateChatSessionTitleDto,
-  GetMessagesQuery,
-  SendMessageDto,
-  ChatMessageDto,
+import {
+  type ChatSessionDto,
+  type ChatSessionDetailDto,
+  type CreateChatSessionDto,
+  type GetChatSessionsQuery,
+  type PaginatedResponse,
+  type UpdateChatSessionTitleDto,
+  type GetMessagesQuery,
+  type SendMessageDto,
+  type ChatMessageDto,
+  ModelName,
 } from "./types/chat-session";
 import { Observable, Subject } from "rxjs";
 
@@ -370,6 +371,14 @@ export class ChatSessionController {
       type: "object",
       properties: {
         content: { type: "string", description: "消息内容" },
+        model: {
+          type: "string",
+          description: `模型名称，${ModelName.GLM4}更小更快(默认选项)，${ModelName.GLM4_5}更强更慢`,
+        },
+        path: {
+          type: "string",
+          description: "指定根据某些文档回答问题，抖音官网文档的path",
+        },
       },
       required: ["content"],
     },

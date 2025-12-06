@@ -6,9 +6,9 @@ import { BaishanEmbeddingService as EmbeddingService } from "./embedding/baishan
 
 export interface DocumentChunk {
   id: string;
-  content: string;
-  businessCategoryId?: string;
+  text: string;
   documentId: string;
+  path: string[];
 }
 
 export interface RetrievedChunk extends DocumentChunk {
@@ -50,6 +50,11 @@ export class QdrantService implements OnModuleInit {
         distance: "Cosine",
       },
     });
+    await this.client.createPayloadIndex(this.qdrantCollection, {
+      field_name: "path",
+      field_schema: "keyword",
+      wait: true,
+    });
   }
 
   async resetCollection() {
@@ -78,7 +83,7 @@ export class QdrantService implements OnModuleInit {
 
   async upsertDocuments(documents: DocumentChunk[]): Promise<void> {
     // 使用embed方法获取嵌入向量
-    const texts = documents.map((doc) => doc.content);
+    const texts = documents.map((doc) => doc.text);
     this.logger.verbose(`Embedding ${texts.length} documents`);
     const vectors = await this.embeddingService.embedDocuments(texts);
 
@@ -87,11 +92,9 @@ export class QdrantService implements OnModuleInit {
       id: doc.id || randomUUID(),
       vector: vectors[idx],
       payload: {
-        text: doc.content,
-        metadata: {
-          businessCategoryId: doc.businessCategoryId,
-          documentId: doc.documentId,
-        },
+        text: doc.text,
+        documentId: doc.documentId,
+        path: doc.path,
       },
     }));
 
@@ -109,37 +112,48 @@ export class QdrantService implements OnModuleInit {
 
   async retrieveRelevantChunks(
     query: string,
-    limit: number = 5,
+    options: {
+      limit?: number;
+      path?: string;
+    } = {},
   ): Promise<RetrievedChunk[]> {
     const queryVec = await this.embeddingService.embedQuery(query);
 
+    const pathFilter = options.path
+      ? {
+          key: "path",
+          match: {
+            value: options.path,
+          },
+        }
+      : {};
     // 修复Qdrant客户端搜索调用格式
     const resp = await this.client.search(this.qdrantCollection, {
       vector: queryVec,
-      limit,
+      limit: options.limit || 5,
+      filter: { must: [pathFilter] },
     });
 
     // 转换结果
     const results = resp.map((result) => {
-      const metadata = result.payload?.metadata as
-        | {
-            businessCategoryId: string;
-            documentId: string;
-          }
-        | undefined;
+      const payload = result.payload! as {
+        text: string;
+        documentId: string;
+        path: string[];
+      };
       return {
-        id: result.id.toString(),
+        id: String(result.id),
         score: result.score,
-        content: result.payload?.text as string,
-        businessCategoryId: metadata?.businessCategoryId || "",
-        documentId: metadata?.documentId || "",
+        text: payload.text,
+        path: payload.path,
+        documentId: payload.documentId,
       };
     });
 
     const overview = results
       .map(
-        ({ content, score }) =>
-          `${content.substring(0, 20)}... (size: ${content.length}, score: ${score.toFixed(3)})`,
+        ({ text, score, documentId }) =>
+          `${text.substring(0, 20).replaceAll("\n", "\\n")}... (from: ${documentId}, size: ${text.length}, score: ${score.toFixed(3)})`,
       )
       .join("\n");
     this.logger.verbose(
@@ -148,22 +162,19 @@ export class QdrantService implements OnModuleInit {
     return results;
   }
 
-  async buildContext(
-    query: string,
-    k = 5,
+  buildContext(
+    retrievedChunks: RetrievedChunk[],
     minScore = 0.5,
     maxLength = 2000,
-  ): Promise<string> {
-    const docs = await this.retrieveRelevantChunks(query, k);
-
+  ): string {
     // 1. 过滤掉相似度分数过低的结果
-    const filteredDocs = docs.filter((doc) => doc.score >= minScore);
+    const filteredDocs = retrievedChunks.filter((doc) => doc.score >= minScore);
 
-    // 2. 内容去重（基于content字段）
+    // 2. 内容去重
     const uniqueDocsMap = new Map<string, RetrievedChunk>();
     filteredDocs.forEach((doc) => {
-      if (!uniqueDocsMap.has(doc.content)) {
-        uniqueDocsMap.set(doc.content, doc);
+      if (!uniqueDocsMap.has(doc.text)) {
+        uniqueDocsMap.set(doc.text, doc);
       }
     });
     const uniqueDocs = Array.from(uniqueDocsMap.values());
@@ -174,12 +185,9 @@ export class QdrantService implements OnModuleInit {
 
     for (let i = 0; i < uniqueDocs.length; i++) {
       const doc = uniqueDocs[i];
-      const metadataInfo =
-        doc.documentId || doc.businessCategoryId
-          ? `(来源: 文档ID=${doc.documentId}, 分类ID=${doc.businessCategoryId})`
-          : "";
 
-      const chunkWithContext = `【片段${i + 1}】${metadataInfo}\n相似度: ${doc.score.toFixed(3)}\n${doc.content}`;
+      const chunkWithContext = `[片段${i + 1}]
+${doc.text}`;
       const chunkLength = chunkWithContext.length;
 
       // 4. 控制上下文总长度
