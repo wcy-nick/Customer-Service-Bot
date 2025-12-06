@@ -10,6 +10,7 @@ import {
   Request,
   UseGuards,
   RequestMethod,
+  NotFoundException,
 } from "@nestjs/common";
 import { JwtAuthGuard } from "./auth/jwt-auth.guard";
 import { ChatSessionService } from "./chat-session.service";
@@ -35,6 +36,7 @@ import {
   ModelName,
 } from "./types/chat-session";
 import { Observable, Subject } from "rxjs";
+import { PrismaService } from "./prisma.service";
 
 // 自定义MessageEvent接口
 export interface ServerSentEvent<T = any> {
@@ -45,7 +47,10 @@ export interface ServerSentEvent<T = any> {
 @Controller("api/chat/sessions")
 @UseGuards(JwtAuthGuard)
 export class ChatSessionController {
-  constructor(private readonly chatSessionService: ChatSessionService) {}
+  constructor(
+    private readonly chatSessionService: ChatSessionService,
+    private readonly prismaService: PrismaService,
+  ) {}
 
   /**
    * 获取聊天会话列表（带分页）
@@ -399,15 +404,27 @@ export class ChatSessionController {
   @ApiResponse({ status: 403, description: "无权访问该会话" })
   @ApiResponse({ status: 404, description: "会话不存在" })
   @Sse(":sessionId/messages", { method: RequestMethod.POST })
-  sendMessage(
+  async sendMessage(
     @Request() req: { user: { id: string } },
     @Param("sessionId") sessionId: string,
     @Body() data: SendMessageDto,
-  ): Observable<ServerSentEvent> {
+  ): Promise<Observable<ServerSentEvent>> {
     const userId = req.user.id;
 
     // 创建一个Subject来发送SSE事件
     const subject = new Subject<ServerSentEvent>();
+
+    // 验证会话是否存在且属于当前用户
+    const session = await this.prismaService.client.chatSession.findUnique({
+      where: {
+        id: sessionId,
+        userId,
+      },
+    });
+
+    if (!session) {
+      throw new NotFoundException("Chat session not found");
+    }
 
     /**
      * 为什么 sendMessage 已经是 async 还要再包一层 IIFE？千万不能await该IIFE

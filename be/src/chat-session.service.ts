@@ -23,12 +23,20 @@ import { ChatZhipuAI } from "@langchain/community/chat_models/zhipuai";
 @Injectable()
 export class ChatSessionService {
   private readonly logger = new Logger(ChatSessionService.name);
+  private readonly promptTask: string;
 
   constructor(
     private readonly prismaService: PrismaService,
     private readonly qdrantService: QdrantService,
     private readonly configService: ConfigService,
-  ) {}
+  ) {
+    const promptTask = this.configService.get<string>("PROMPT_TASK");
+    if (!promptTask) {
+      throw new Error("PROMPT_TASK is not set");
+    }
+    this.logger.log(`prompt task: ${promptTask}`);
+    this.promptTask = promptTask;
+  }
 
   createChatModel(name: ModelName): ChatZhipuAI {
     const apiKey = this.configService.get<string>("ZHIPU_API_KEY");
@@ -290,18 +298,6 @@ export class ChatSessionService {
     sessionId: string,
     data: SendMessageDto,
   ): AsyncGenerator<string, void, unknown> {
-    // 验证会话是否存在且属于当前用户
-    const session = await this.prismaService.client.chatSession.findUnique({
-      where: {
-        id: sessionId,
-        userId,
-      },
-    });
-
-    if (!session) {
-      throw new HttpException("Chat session not found", HttpStatus.NOT_FOUND);
-    }
-
     // 创建用户消息
     await this.prismaService.client.chatMessage.create({
       data: {
@@ -343,14 +339,12 @@ export class ChatSessionService {
     const context = QdrantService.buildContext(retrievedChunks);
 
     // 拼接适合RAG的prompt
-    const prompt = `基于以下上下文信息回答用户问题：
-
+    const prompt = `${this.promptTask}
 上下文信息：
 ${context}
 
-用户问题：${data.content}
-
-请根据上下文信息进行回答，如果上下文信息不足，请明确说明`;
+商家问题：
+${data.content}`;
 
     // 准备用户消息
     const messages = [new HumanMessage(prompt)];
@@ -363,12 +357,11 @@ ${context}
     try {
       // 处理流中的每个块
       for await (const chunk of stream) {
-        const trimmed = chunk.trim();
-        if (!trimmed) {
+        if (!chunk) {
           continue;
         }
-        accumulatedResponse.push(trimmed);
-        yield trimmed;
+        accumulatedResponse.push(chunk);
+        yield chunk;
       }
     } catch (error) {
       this.logger.error("Error streaming response:", error);
