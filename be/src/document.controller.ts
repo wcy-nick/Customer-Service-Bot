@@ -14,6 +14,7 @@ import {
   Request,
   ParseIntPipe,
   BadRequestException,
+  InternalServerErrorException,
 } from "@nestjs/common";
 import { DocumentService } from "./document.service";
 import type {
@@ -268,7 +269,11 @@ export class DocumentController {
     // 从请求中获取用户ID
     const userId = req.user.id || "system";
 
-    return this.documentService.createDocument(body, userId);
+    return this.documentService.createDocument({
+      ...body,
+      createdBy: userId,
+      updatedBy: userId,
+    });
   }
 
   @ApiBearerAuth()
@@ -411,7 +416,10 @@ export class DocumentController {
   @UseGuards(JwtAuthGuard)
   @Post(":id/vectorize")
   async vectorizeDocument(@Param("id") id: string): Promise<void> {
-    return this.documentService.vectorizeDocumentById(id);
+    const success = await this.documentService.vectorizeDocumentById(id);
+    if (!success) {
+      throw new InternalServerErrorException("向量化文档失败");
+    }
   }
 
   @ApiOperation({ summary: "获取文档版本列表" })

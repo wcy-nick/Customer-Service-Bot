@@ -154,25 +154,45 @@ export class DocumentService {
   }
 
   async createDocument(
-    input: CreateDocumentInput,
-    userId: string,
+    input: CreateDocumentInput & {
+      createdBy?: string;
+      updatedBy?: string;
+      updatedAt?: Date;
+    },
   ): Promise<KnowledgeDocumentDto> {
-    const data = {
-      title: input.title,
-      content: input.content,
-      summary: input.summary,
-      filePath: input.file_path,
-      sourceType: input.source_type,
-      sourceUrl: input.source_url,
-      tags: input.tags,
-      status: "draft",
-      readCount: 0,
-    };
     const document = await this.prismaService.client.knowledgeDocument.create({
-      data: userId ? { ...data, createdBy: userId, updatedBy: userId } : data,
+      data: {
+        title: input.title,
+        content: input.content,
+        summary: input.summary,
+        filePath: input.file_path,
+        sourceType: input.source_type,
+        sourceUrl: input.source_url,
+        tags: input.tags,
+        createdBy: input.createdBy,
+        updatedBy: input.updatedBy,
+        updatedAt: input.updatedAt,
+      },
     });
 
     return this.mapToDto(document);
+  }
+
+  async createMany(
+    input: (CreateDocumentInput & { updateAt: Date })[],
+  ): Promise<void> {
+    await this.prismaService.client.knowledgeDocument.createMany({
+      data: input.map((item) => ({
+        title: item.title,
+        content: item.content,
+        summary: item.summary,
+        filePath: item.file_path,
+        sourceType: item.source_type,
+        sourceUrl: item.source_url,
+        tags: item.tags,
+        updatedAt: item.updateAt,
+      })),
+    });
   }
 
   async updateDocument(
@@ -272,7 +292,7 @@ export class DocumentService {
     return this.mapToDto(updatedDocument);
   }
 
-  async vectorizeDocumentById(id: string): Promise<void> {
+  async vectorizeDocumentById(id: string): Promise<boolean> {
     // 获取文档信息
     const document =
       await this.prismaService.client.knowledgeDocument.findUnique({
@@ -305,7 +325,7 @@ export class DocumentService {
       path: string[];
       url: string;
     },
-  ): Promise<void> {
+  ): Promise<boolean> {
     // 文本分割
     const chunks = await this.textSplitter.splitText(document.content);
 
@@ -320,7 +340,11 @@ export class DocumentService {
     // 调用QdrantService进行向量存储
     collection ||= this.qdrantService.defaultCollection;
     await this.qdrantService.ensureCollection(collection);
-    await this.qdrantService.upsertDocuments(collection, documents);
+    const success = await this.qdrantService.upsertDocuments(
+      collection,
+      documents,
+    );
+    return success;
   }
 
   async getDocumentVersions(id: string): Promise<DocumentVersionDto[]> {

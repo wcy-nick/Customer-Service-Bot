@@ -200,50 +200,62 @@ export class SyncService {
     const existingArticles = new Map(
       articles.map((item) => [item.id, item.update]),
     );
-    const incrementalArticles = articleInfo.filter((item) => {
+    const pendingArticles = articleInfo.filter((item) => {
       const existingUpdateAt = existingArticles.get(item.id)!;
       const ok = existingUpdateAt >= item.update_at;
       return !ok;
     });
     this.logger.log(
-      `Sync ${mode}: ${incrementalArticles.length}/${articleInfo.length}`,
+      `Sync ${mode}: ${pendingArticles.length}/${articleInfo.length}`,
     );
 
-    await Promise.all(
-      incrementalArticles.map((menuItem) =>
-        this.limiter.schedule(async () => {
-          // 执行文章同步
-          this.logger.verbose(`Fetching article ${menuItem.id}`);
-          const articleResp = await this.fetchArticle(menuItem.id);
-          const article = this.parseArticle(articleResp);
-          article.update_timestamp = Math.max(
-            article.update_timestamp,
-            menuItem.update_at,
-          );
-          const markdown = await this.saveArticle(article);
-          const url = `https://school.jinritemai.com/doudian/web/article/${menuItem.id}`;
-          const path = articleResp.data.sources.map((source) => source.node_id);
-          this.logger.verbose(`Saving article ${menuItem.id}`);
-          await this.documentService.createDocument(
-            {
+    for (let iter = 1; pendingArticles.length > 0; iter++) {
+      const success = await Promise.all(
+        pendingArticles.map((menuItem) =>
+          this.limiter.schedule(async () => {
+            this.logger.verbose(`Fetching article ${menuItem.id}`);
+            const articleResp = await this.fetchArticle(menuItem.id);
+
+            const article = this.parseArticle(articleResp);
+            article.update_timestamp = Math.max(
+              article.update_timestamp,
+              menuItem.update_at,
+            );
+            const markdown = Jinritemai.parse(
+              article.content as unknown as Jinritemai.Schema,
+            );
+            const url = `https://school.jinritemai.com/doudian/web/article/${menuItem.id}`;
+            const path = articleResp.data.sources.map(
+              (source) => source.node_id,
+            );
+
+            this.logger.verbose(`Saving article ${menuItem.id}`);
+            await this.documentService.createDocument({
               content: markdown,
               title: article.name,
               file_path: path.join("/"),
               source_type: "douyin",
               source_url: url,
-            },
-            "",
-          );
-          this.logger.verbose(`Vectorizing article ${menuItem.id}`);
-          await this.documentService.vectorizeDocument("", {
-            content: markdown,
-            url,
-            path,
-          });
-          this.logger.verbose(`Finish article ${menuItem.id}`);
-        }),
-      ),
-    );
+              updatedAt: new Date(article.update_timestamp * 1000),
+            });
+
+            this.logger.verbose(`Vectorizing article ${menuItem.id}`);
+            const success = await this.documentService.vectorizeDocument("", {
+              content: markdown,
+              url,
+              path,
+            });
+            this.logger.verbose(`Finish article ${menuItem.id}`);
+            return success;
+          }),
+        ),
+      );
+      const failed = pendingArticles.filter((_, index) => !success[index]);
+      this.logger.log(
+        `Sync Iter ${iter}: ${failed.length} tasks failed, finished ${pendingArticles.length - failed.length}/${pendingArticles.length}`,
+      );
+      pendingArticles.splice(0, pendingArticles.length, ...failed);
+    }
   }
 
   /**

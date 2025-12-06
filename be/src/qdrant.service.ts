@@ -86,11 +86,17 @@ export class QdrantService implements OnModuleInit {
   async upsertDocuments(
     collection: string,
     documents: DocumentChunk[],
-  ): Promise<void> {
-    // 使用embed方法获取嵌入向量
+  ): Promise<boolean> {
     const texts = documents.map((doc) => doc.text);
     this.logger.verbose(`Embedding ${texts.length} documents`);
-    const vectors = await this.embeddingService.embedDocuments(texts);
+
+    const vectors: number[][] = [];
+    try {
+      vectors.push(...(await this.embeddingService.embedDocuments(texts)));
+    } catch (error) {
+      this.logger.error(`Embedding documents: ${error}`);
+      return false;
+    }
 
     // 创建points数组
     const points = documents.map((doc, idx) => ({
@@ -106,13 +112,19 @@ export class QdrantService implements OnModuleInit {
     this.logger.verbose(
       `Upserting ${points.length} points to collection ${collection}`,
     );
-    await this.client.upsert(collection, {
-      wait: true,
-      points,
-    });
+    try {
+      await this.client.upsert(collection, {
+        wait: true,
+        points,
+      });
+    } catch (error) {
+      this.logger.error(`Upserting points: ${error}`);
+      return false;
+    }
     this.logger.verbose(
       `Upserted ${points.length} points to collection ${collection}`,
     );
+    return true;
   }
 
   async retrieveRelevantChunks(
