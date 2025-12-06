@@ -74,7 +74,7 @@ type MenuResponse = Response<{
 
 @Injectable()
 export class SyncService {
-  private readonly baseURL: string =
+  public static readonly baseURL: string =
     "https://school.jinritemai.com/api/eschool/v2/library";
   private readonly articlesDir: string = "articles";
   private readonly mdDir: string = "articles-md";
@@ -221,20 +221,23 @@ export class SyncService {
             menuItem.update_at,
           );
           const markdown = await this.saveArticle(article);
+          const url = `https://school.jinritemai.com/doudian/web/article/${menuItem.id}`;
           const path = articleResp.data.sources.map((source) => source.node_id);
           this.logger.verbose(`Saving article ${menuItem.id}`);
-          const document = await this.documentService.createDocument(
+          await this.documentService.createDocument(
             {
               content: markdown,
               title: article.name,
               file_path: path.join("/"),
+              source_type: "douyin",
+              source_url: url,
             },
             "",
           );
           this.logger.verbose(`Vectorizing article ${menuItem.id}`);
           await this.documentService.vectorizeDocument({
             content: markdown,
-            id: document.id,
+            url,
             path,
           });
           this.logger.verbose(`Finish article ${menuItem.id}`);
@@ -287,7 +290,7 @@ export class SyncService {
   }
 
   private async fetchMenu(node_id: string): Promise<MenuResponse> {
-    const url = `${this.baseURL}/article/list?node_id=${node_id}&page_size=100`;
+    const url = `${SyncService.baseURL}/article/list?node_id=${node_id}&page_size=1000`;
     return this.fetchData(url);
   }
 
@@ -296,7 +299,7 @@ export class SyncService {
   }
 
   public async fetchArticle(id: string): Promise<ArticleResponse> {
-    const url = `${this.baseURL}/article/detail?id=${id}`;
+    const url = `${SyncService.baseURL}/article/detail?id=${id}`;
     return this.fetchData(url);
   }
 

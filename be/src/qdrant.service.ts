@@ -7,7 +7,7 @@ import { BaishanEmbeddingService as EmbeddingService } from "./embedding/baishan
 export interface DocumentChunk {
   id: string;
   text: string;
-  documentId: string;
+  url: string;
   path: string[];
 }
 
@@ -93,7 +93,7 @@ export class QdrantService implements OnModuleInit {
       vector: vectors[idx],
       payload: {
         text: doc.text,
-        documentId: doc.documentId,
+        url: doc.url,
         path: doc.path,
       },
     }));
@@ -138,7 +138,7 @@ export class QdrantService implements OnModuleInit {
     const results = resp.map((result) => {
       const payload = result.payload! as {
         text: string;
-        documentId: string;
+        url: string;
         path: string[];
       };
       return {
@@ -146,14 +146,14 @@ export class QdrantService implements OnModuleInit {
         score: result.score,
         text: payload.text,
         path: payload.path,
-        documentId: payload.documentId,
+        url: payload.url,
       };
     });
 
     const overview = results
       .map(
-        ({ text, score, documentId }) =>
-          `${text.substring(0, 20).replaceAll("\n", "\\n")}... (from: ${documentId}, size: ${text.length}, score: ${score.toFixed(3)})`,
+        ({ text, score, url }) =>
+          `${text.substring(0, 20).replaceAll("\n", "\\n")}... (from: ${url}, size: ${text.length}, score: ${score.toFixed(3)})`,
       )
       .join("\n");
     this.logger.verbose(

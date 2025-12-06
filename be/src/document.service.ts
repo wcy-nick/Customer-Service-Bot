@@ -275,7 +275,7 @@ export class DocumentService {
     const document =
       await this.prismaService.client.knowledgeDocument.findUnique({
         where: { id },
-        select: { title: true, content: true, id: true },
+        select: { title: true, content: true, id: true, sourceUrl: true },
       });
 
     if (!document?.content) {
@@ -285,15 +285,15 @@ export class DocumentService {
     }
     return this.vectorizeDocument({
       content: document.content,
-      id: document.id,
+      url: document.sourceUrl || "",
       path: [],
     });
   }
 
   async vectorizeDocument(document: {
     content: string;
-    id: string;
     path: string[];
+    url: string;
   }): Promise<void> {
     // 文本分割
     const chunks = await this.textSplitter.splitText(document.content);
@@ -302,18 +302,12 @@ export class DocumentService {
     const documents = chunks.map((chunk, index) => ({
       id: randomUUID(),
       text: chunk,
-      documentId: document.id,
+      url: document.url || "",
       path: [...document.path, index.toString()],
     }));
 
     // 调用QdrantService进行向量存储
     await this.qdrantService.upsertDocuments(documents);
-
-    // 更新文档的向量化状态
-    await this.prismaService.client.knowledgeDocument.update({
-      where: { id: document.id },
-      data: { isVectorized: true },
-    });
   }
 
   async getDocumentVersions(id: string): Promise<DocumentVersionDto[]> {
