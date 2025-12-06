@@ -12,7 +12,6 @@ import {
 import { Prisma } from "@prisma/client";
 import { RecursiveCharacterTextSplitter } from "@langchain/textsplitters";
 import { QdrantService } from "./qdrant.service";
-import { randomUUID } from "crypto";
 import { ConfigService } from "@nestjs/config";
 
 interface KnowledgeDocumentModel {
@@ -312,6 +311,7 @@ export class DocumentService {
       );
     }
     return this.vectorizeDocument(document.createdBy || "", {
+      id,
       content: document.content,
       url: document.sourceUrl || "",
       path: [],
@@ -321,6 +321,7 @@ export class DocumentService {
   async vectorizeDocument(
     collection: string,
     document: {
+      id: string;
       content: string;
       path: string[];
       url: string;
@@ -328,13 +329,23 @@ export class DocumentService {
   ): Promise<boolean> {
     // 文本分割
     const chunks = await this.textSplitter.splitText(document.content);
+    const ids =
+      await this.prismaService.client.documentChunk.createManyAndReturn({
+        select: { id: true },
+        data: chunks.map((text, index) => ({
+          documentId: document.id,
+          content: text,
+          chunkIndex: index,
+          contentLength: text.length,
+        })),
+      });
 
     // 为每个chunk添加元数据
-    const documents = chunks.map((chunk, index) => ({
-      id: randomUUID(),
-      text: chunk,
+    const documents = ids.map(({ id }, i) => ({
+      id,
+      text: chunks[i],
       url: document.url || "",
-      path: [...document.path, index.toString()],
+      path: [...document.path, i.toString()],
     }));
 
     // 调用QdrantService进行向量存储

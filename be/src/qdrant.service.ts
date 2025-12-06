@@ -1,6 +1,5 @@
 import { Injectable, Logger, OnModuleInit } from "@nestjs/common";
 import { QdrantClient } from "@qdrant/js-client-rest";
-import { randomUUID } from "crypto";
 import { ConfigService } from "@nestjs/config";
 import { BaishanEmbeddingService as EmbeddingService } from "./embedding/baishan";
 
@@ -105,7 +104,7 @@ export class QdrantService implements OnModuleInit {
 
     // 创建points数组
     const points = documents.map((doc, idx) => ({
-      id: doc.id || randomUUID(),
+      id: doc.id,
       vector: vectors[idx],
       payload: {
         text: doc.text,

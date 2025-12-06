@@ -190,7 +190,6 @@ export class SyncService {
 
   /**
    * 执行抖音知识同步
-   * @param jobId 作业ID
    */
   private async executeDouyinSync(mode: SyncMode): Promise<void> {
     const articles = mode === SyncMode.Full ? [] : await this.readArticleList();
@@ -230,17 +229,19 @@ export class SyncService {
             path.push(menuItem.id);
 
             this.logger.verbose(`Saving article ${menuItem.id}`);
-            await this.documentService.createDocument({
-              content: markdown,
-              title: article.name,
-              file_path: path.join("/"),
-              source_type: "douyin",
-              source_url: url,
-              updatedAt: new Date(article.update_timestamp * 1000),
-            });
+            const { id: documentId } =
+              await this.documentService.createDocument({
+                content: markdown,
+                title: article.name,
+                file_path: path.join("/"),
+                source_type: "douyin",
+                source_url: url,
+                updatedAt: new Date(article.update_timestamp * 1000),
+              });
 
             this.logger.verbose(`Vectorizing article ${menuItem.id}`);
             const success = await this.documentService.vectorizeDocument("", {
+              id: documentId,
               content: markdown,
               url,
               path,
