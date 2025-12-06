@@ -6,6 +6,7 @@ import {
   Body,
   Param,
   UseGuards,
+  BadRequestException,
 } from "@nestjs/common";
 import { AnalyticsService } from "./analytics.service";
 import type {
@@ -267,10 +268,18 @@ export class AnalyticsController {
     description: "结束日期",
   })
   @ApiQuery({
-    name: "interval",
+    name: "metric",
     required: false,
     type: String,
-    description: "时间间隔（day, week, month）",
+    description: "指标类型",
+    enum: ["sessions", "messages", "documents_viewed", "user_satisfaction"],
+  })
+  @ApiQuery({
+    name: "group_by",
+    required: false,
+    type: String,
+    description: "时间分组",
+    enum: ["day", "week", "month"],
   })
   @ApiResponse({
     status: 200,
@@ -294,6 +303,25 @@ export class AnalyticsController {
   async getUsageTrends(
     @Query() query: UsageTrendsQuery,
   ): Promise<UsageTrendDto[]> {
+    if (!query.metric) {
+      query.metric = "sessions";
+    }
+    if (
+      ![
+        "sessions",
+        "messages",
+        "documents_viewed",
+        "user_satisfaction",
+      ].includes(query.metric)
+    ) {
+      throw new BadRequestException("未知的metric类型");
+    }
+    if (!query.group_by) {
+      query.group_by = "day";
+    }
+    if (!["day", "week", "month"].includes(query.group_by)) {
+      throw new BadRequestException("未知的group_by类型");
+    }
     return this.analyticsService.getUsageTrends(query);
   }
 
