@@ -95,6 +95,11 @@ export class QdrantService implements OnModuleInit {
       vectors.push(...(await this.embeddingService.embedDocuments(texts)));
     } catch (error) {
       this.logger.error(`Embedding documents: ${error}`);
+      if (error instanceof AggregateError) {
+        for (const err of error.errors) {
+          this.logger.error(err);
+        }
+      }
       return false;
     }
 

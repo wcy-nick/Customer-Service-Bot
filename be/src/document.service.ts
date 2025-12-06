@@ -29,7 +29,7 @@ interface KnowledgeDocumentModel {
   createdBy?: string | null;
   createdAt: Date;
   updatedAt: Date;
-  fileUrl?: string | null;
+  filePath?: string | null;
 }
 
 interface KnowledgeDocumentDetailModel extends KnowledgeDocumentModel {
@@ -429,6 +429,7 @@ export class DocumentService {
       created_by: document.createdBy ?? "",
       created_at: document.createdAt,
       updated_at: document.updatedAt,
+      file_path: document.filePath ?? "",
     };
   }
 

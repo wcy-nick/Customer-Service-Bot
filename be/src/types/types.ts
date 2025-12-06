@@ -140,7 +140,7 @@ export interface KnowledgeDocumentDto {
   created_by?: string;
   created_at: Date;
   updated_at: Date;
-  file_url?: string;
+  file_path?: string;
 }
 
 export interface KnowledgeDocumentDetailDto extends KnowledgeDocumentDto {

@@ -9,7 +9,6 @@ import {
 import { Prisma } from "@prisma/client";
 import Bottleneck from "bottleneck";
 import fs from "fs/promises";
-import { sanitizeWindowsPath } from "./utils/pathUtils.js";
 import * as Jinritemai from "./utils/jinritemai.js";
 import { DocumentService } from "./document.service";
 
@@ -228,6 +227,7 @@ export class SyncService {
             const path = articleResp.data.sources.map(
               (source) => source.node_id,
             );
+            path.push(menuItem.id);
 
             this.logger.verbose(`Saving article ${menuItem.id}`);
             await this.documentService.createDocument({
@@ -336,43 +336,18 @@ export class SyncService {
     };
   }
 
-  private async saveJSON(filePath: string, data: object): Promise<void> {
-    return fs.writeFile(filePath, JSON.stringify(data, null, 2), "utf-8");
-  }
-
-  public async saveArticle(article: Article): Promise<string> {
-    const sanitizedName = sanitizeWindowsPath(article.name);
-
-    const saveJSON = this.saveJSON(
-      `${this.articlesDir}/${article.id}-${article.update_timestamp}-${sanitizedName}.json`,
-      article.content,
-    );
-
-    const md = Jinritemai.parse(
-      article.content as unknown as Jinritemai.Schema,
-    );
-    const saveMD = fs.writeFile(
-      `${this.mdDir}/${article.id}-${article.update_timestamp}-${sanitizedName}.md`,
-      md,
-      "utf-8",
-    );
-
-    await Promise.all([saveJSON, saveMD]);
-    return md;
-  }
-
   private async readArticleList(): Promise<
     { id: string; title: string; update: number }[]
   > {
-    const files = await fs.readdir(this.articlesDir);
-    const articles = files.map((name) => {
-      const [, id, timestamp, title] = /(\w+)-(\d+)-(.+)\.json/.exec(name)!;
-      return {
-        id,
-        title,
-        update: Number(timestamp),
-      };
+    const documents = await this.documentService.getDocuments({
+      source_type: "douyin",
+      limit: 1000,
     });
+    const articles = documents.data.map((doc) => ({
+      id: doc.file_path!.split("/").at(-1)!,
+      title: doc.title,
+      update: doc.updated_at.getTime() / 1000,
+    }));
     return articles;
   }
 }
