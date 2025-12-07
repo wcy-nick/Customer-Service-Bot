@@ -23,7 +23,7 @@ import type {
   RefreshTokenResponse,
   RegisterUserInput,
 } from "../types/types";
-import { User } from "../types/types";
+import { User, UserRole } from "../types/types";
 
 @ApiTags("auth")
 @Controller("api/auth")
@@ -60,7 +60,11 @@ export class AuthController {
             email: { type: "string", description: "邮箱" },
             display_name: { type: "string", description: "显示名称" },
             avatar_url: { type: "string", description: "头像URL" },
-            role: { type: "string", description: "用户角色" },
+            role: {
+              type: "string",
+              description: "用户角色",
+              enum: [UserRole.user, UserRole.admin],
+            },
             created_at: {
               type: "string",
               format: "date-time",

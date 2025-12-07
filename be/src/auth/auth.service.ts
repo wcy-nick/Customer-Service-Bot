@@ -63,14 +63,14 @@ export class AuthService {
 
   private generateAccessToken(payload: TokenPayload): string {
     return this.jwtService.sign(payload, {
-      expiresIn: "15m",
+      expiresIn: "4h",
     });
   }
 
   private generateRefreshToken(payload: TokenPayload): string {
     return this.jwtService.sign(payload, {
       secret: process.env.JWT_REFRESH_SECRET || "your-refresh-secret-key",
-      expiresIn: "7d",
+      expiresIn: "30d",
     });
   }
 
@@ -79,7 +79,7 @@ export class AuthService {
     tokenHash: string,
   ): Promise<void> {
     const expiresAt = new Date();
-    expiresAt.setDate(expiresAt.getDate() + 7); // 7天过期
+    expiresAt.setDate(expiresAt.getDate() + 30); // 30天过期
 
     await this.prisma.userSession.create({
       data: {

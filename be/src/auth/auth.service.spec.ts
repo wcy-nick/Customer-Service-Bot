@@ -336,13 +336,13 @@ describe("AuthService", () => {
 
       // 检查第一个调用（access token）
       expect(mockJwtSign).toHaveBeenNthCalledWith(1, user, {
-        expiresIn: "15m",
+        expiresIn: "4h",
       });
 
       // 检查第二个调用（refresh token）
       expect(mockJwtSign).toHaveBeenNthCalledWith(2, user, {
         secret: process.env.JWT_REFRESH_SECRET || "your-refresh-secret-key",
-        expiresIn: "7d",
+        expiresIn: "30d",
       });
     });
   });
