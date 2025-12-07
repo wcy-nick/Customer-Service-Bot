@@ -15,8 +15,14 @@ import {
   MessageType,
   MessageFeedbackDto,
   ModelName,
+  MessageRole,
 } from "./types/chat-session";
-import { HumanMessage } from "@langchain/core/messages";
+import {
+  HumanMessage,
+  AIMessage,
+  SystemMessage,
+  type BaseMessage,
+} from "@langchain/core/messages";
 import { StringOutputParser } from "@langchain/core/output_parsers";
 import { ChatZhipuAI } from "@langchain/community/chat_models/zhipuai";
 
@@ -154,7 +160,7 @@ export class ChatSessionService {
     // 转换消息为DTO
     const messages: ChatMessageDto[] = session.messages.map((message) => ({
       id: message.id,
-      role: message.role,
+      role: message.role as MessageRole,
       content: message.content,
       createdAt: message.createdAt.toISOString(),
     }));
@@ -273,7 +279,7 @@ export class ChatSessionService {
     // 转换为DTO
     const items: ChatMessageDto[] = messages.map((message) => ({
       id: message.id,
-      role: message.role,
+      role: message.role as MessageRole,
       content: message.content,
       message_type: message.userMessageType as MessageType,
       audio_file_path: message.audioFilePath ?? undefined,
@@ -298,11 +304,22 @@ export class ChatSessionService {
     sessionId: string,
     data: SendMessageDto,
   ): AsyncGenerator<string, void, unknown> {
+    // 查询该会话的历史消息（不包含当前正在处理的消息）
+    const historyMessages =
+      await this.prismaService.client.chatMessage.findMany({
+        select: {
+          role: true,
+          content: true,
+        },
+        where: { sessionId },
+        orderBy: { createdAt: "asc" },
+      });
+
     // 创建用户消息
     await this.prismaService.client.chatMessage.create({
       data: {
         sessionId,
-        role: "user",
+        role: MessageRole.User,
         content: data.content,
         userMessageType: data.type,
         audioFilePath: data.audioFilePath,
@@ -328,26 +345,40 @@ export class ChatSessionService {
     // 构建消息链
     const chain = model.pipe(parser);
 
+    // 准备消息列表
+    const messages: BaseMessage[] = [];
+
+    // 添加系统提示
+    messages.push(new SystemMessage(this.promptTask));
+
     // RAG过程：获取与用户查询相关的上下文
     const empty = await this.qdrantService.ensureCollection(userId);
     this.logger.verbose(`Collection ${userId} was empty: ${empty}`);
-    const retrievedChunks = empty
-      ? []
-      : await this.qdrantService.retrieveRelevantChunks(userId, data.content, {
-          path: data.path,
-        });
-    const context = QdrantService.buildContext(retrievedChunks);
+    const retrievedChunks = await this.qdrantService.retrieveRelevantChunks(
+      userId,
+      data.content,
+      {
+        path: data.path,
+      },
+    );
+    if (retrievedChunks.length > 0) {
+      const context = QdrantService.buildContext(retrievedChunks);
+      messages.push(new SystemMessage(`上下文信息：${context}`));
+    }
 
-    // 拼接适合RAG的prompt
-    const prompt = `${this.promptTask}
-上下文信息：
-${context}
+    // 添加历史对话
+    for (const msg of historyMessages) {
+      const obj =
+        (msg.role as MessageRole) === MessageRole.User
+          ? new HumanMessage(msg.content)
+          : new AIMessage(msg.content);
+      messages.push(obj);
+    }
 
-商家问题：
-${data.content}`;
+    // 添加当前用户问题
+    messages.push(new HumanMessage(data.content));
 
-    // 准备用户消息
-    const messages = [new HumanMessage(prompt)];
+    this.logger.verbose(`Sending ${messages.length} messages to LLM`);
 
     // 流式获取响应
     const accumulatedResponse: string[] = [];
@@ -378,7 +409,7 @@ ${data.content}`;
     await this.prismaService.client.chatMessage.create({
       data: {
         sessionId,
-        role: "assistant",
+        role: MessageRole.Assistant,
         content: joinedResponse,
       },
     });

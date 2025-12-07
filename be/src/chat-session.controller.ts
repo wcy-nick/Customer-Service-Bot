@@ -34,6 +34,7 @@ import {
   type SendMessageDto,
   type ChatMessageDto,
   ModelName,
+  MessageRole,
 } from "./types/chat-session";
 import { Observable, Subject } from "rxjs";
 import { PrismaService } from "./prisma.service";
@@ -335,7 +336,8 @@ export class ChatSessionController {
               content: { type: "string", description: "消息内容" },
               role: {
                 type: "string",
-                description: "消息角色（user或assistant）",
+                description: "消息角色",
+                enum: [MessageRole.User, MessageRole.Assistant],
               },
               created_at: {
                 type: "string",

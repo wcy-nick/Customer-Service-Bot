@@ -61,6 +61,13 @@ export class QdrantService implements OnModuleInit {
     await this.createCollection(name);
   }
 
+  /**
+   * 确保集合存在，若不存在则创建。
+   * 若已存在且reset为true，则重置集合。
+   * @param name 集合名称
+   * @param reset 是否重置集合（默认：false）
+   * @returns 是否一定为空（即集合是否不存在或已重置）
+   */
   async ensureCollection(name: string, reset: boolean = false) {
     const { exists } = await this.client.collectionExists(name);
 

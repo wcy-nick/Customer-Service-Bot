@@ -27,10 +27,15 @@ export interface ChatSessionDto {
   updatedAt: string;
 }
 
+export enum MessageRole {
+  User = "user",
+  Assistant = "assistant",
+}
+
 // 聊天消息基础信息DTO（用于会话详情）
 export interface ChatMessageDto {
   id: string;
-  role: string;
+  role: MessageRole;
   content: string;
   message_type?: MessageType;
   audio_file_path?: string;
