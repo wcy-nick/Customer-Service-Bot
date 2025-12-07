@@ -159,11 +159,43 @@ export class AnalyticsService {
     return frequentQuestions.map((item) => ({
       question: item.questionPattern,
       frequency: item.askCount,
-      business_category_id: undefined, // 示例值，实际可能需要关联业务分类
-      business_category_name: undefined, // 示例值
       first_occurrence: item.firstAskedAt || item.createdAt,
       last_occurrence: item.lastAskedAt || item.createdAt,
     }));
+  }
+
+  async updateFrequentQuestions(question: string): Promise<void> {
+    // 将问题添加到高频问题统计中
+    const existingFrequentQuestion =
+      await this.prismaService.client.frequentQuestion.findFirst({
+        where: {
+          questionPattern: question,
+        },
+      });
+
+    if (existingFrequentQuestion) {
+      // 更新已有高频问题的统计信息
+      await this.prismaService.client.frequentQuestion.update({
+        where: {
+          id: existingFrequentQuestion.id,
+        },
+        data: {
+          askCount: existingFrequentQuestion.askCount + 1,
+          lastAskedAt: new Date(),
+        },
+      });
+    } else {
+      // 添加新的高频问题
+      await this.prismaService.client.frequentQuestion.create({
+        data: {
+          questionPattern: question,
+          askCount: 1,
+          uniqueUsers: 1,
+          firstAskedAt: new Date(),
+          lastAskedAt: new Date(),
+        },
+      });
+    }
   }
 
   /**
@@ -208,10 +240,9 @@ export class AnalyticsService {
     const data = questions.map((question) => ({
       id: question.id,
       question: question.questionText,
-      user_id: "", // 示例值，实际需要关联用户
-      user_name: undefined,
-      session_id: "", // 示例值，实际需要关联会话
-      created_at: question.lastAskedAt,
+      ask_count: question.askCount,
+      created_at: question.firstAskedAt,
+      updated_at: question.lastAskedAt,
       is_resolved: question.isResolved,
       resolved_at: question.resolvedAt || undefined,
       resolved_by: question.resolver?.username || undefined,
@@ -228,6 +259,35 @@ export class AnalyticsService {
         total_pages: Math.ceil(total / limit),
       },
     };
+  }
+  async updateUnansweredQuestions(question: string): Promise<void> {
+    // 检查问题是否已经存在于未回答问题表中
+    const existingQuestion =
+      await this.prismaService.client.unansweredQuestion.findFirst({
+        where: {
+          questionText: question,
+        },
+      });
+
+    if (existingQuestion) {
+      // 更新已有问题的询问次数和最后询问时间
+      await this.prismaService.client.unansweredQuestion.update({
+        where: {
+          id: existingQuestion.id,
+        },
+        data: {
+          askCount: existingQuestion.askCount + 1,
+          lastAskedAt: new Date(),
+        },
+      });
+    } else {
+      // 添加新的未回答问题
+      await this.prismaService.client.unansweredQuestion.create({
+        data: {
+          questionText: question,
+        },
+      });
+    }
   }
 
   /**
@@ -401,10 +461,9 @@ export class AnalyticsService {
     return {
       id: updatedQuestion.id,
       question: updatedQuestion.questionText,
-      user_id: "", // 示例值
-      user_name: undefined,
-      session_id: "", // 示例值
-      created_at: updatedQuestion.lastAskedAt,
+      ask_count: updatedQuestion.askCount,
+      created_at: updatedQuestion.firstAskedAt,
+      updated_at: updatedQuestion.lastAskedAt,
       is_resolved: updatedQuestion.isResolved,
       resolved_at: updatedQuestion.resolvedAt || undefined,
       resolved_by: updatedQuestion.resolver?.username || undefined,

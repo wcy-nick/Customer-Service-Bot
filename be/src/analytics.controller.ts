@@ -216,27 +216,51 @@ export class AnalyticsController {
     schema: {
       type: "object",
       properties: {
-        items: {
+        data: {
           type: "array",
           items: {
             type: "object",
             properties: {
               id: { type: "string", description: "问题ID" },
               question: { type: "string", description: "问题内容" },
-              session_id: { type: "string", description: "会话ID" },
-              user_id: { type: "string", description: "用户ID" },
+              ask_count: { type: "number", description: "问题被询问的次数" },
               created_at: {
                 type: "string",
                 format: "date-time",
                 description: "创建时间",
               },
+              updated_at: {
+                type: "string",
+                format: "date-time",
+                description: "更新时间",
+              },
+              is_resolved: { type: "boolean", description: "问题是否已解决" },
+              resolved_at: {
+                type: "string",
+                format: "date-time",
+                description: "问题解决时间",
+              },
+              resolved_by: { type: "string", description: "解决问题的人" },
+              related_document_id: {
+                type: "string",
+                description: "相关文档ID",
+              },
+              related_document_title: {
+                type: "string",
+                description: "相关文档标题",
+              },
             },
           },
         },
-        total: { type: "number", description: "总数量" },
-        page: { type: "number", description: "当前页码" },
-        limit: { type: "number", description: "每页数量" },
-        total_pages: { type: "number", description: "总页数" },
+        meta: {
+          type: "object",
+          properties: {
+            total: { type: "number", description: "总数量" },
+            page: { type: "number", description: "当前页码" },
+            limit: { type: "number", description: "每页数量" },
+            total_pages: { type: "number", description: "总页数" },
+          },
+        },
       },
     },
   })

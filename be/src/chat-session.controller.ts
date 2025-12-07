@@ -11,6 +11,7 @@ import {
   UseGuards,
   RequestMethod,
   NotFoundException,
+  Logger,
 } from "@nestjs/common";
 import { JwtAuthGuard } from "./auth/jwt-auth.guard";
 import { ChatSessionService } from "./chat-session.service";
@@ -38,6 +39,7 @@ import {
 } from "./types/chat-session";
 import { Observable, Subject } from "rxjs";
 import { PrismaService } from "./prisma.service";
+import { QdrantService } from "./qdrant.service";
 
 // 自定义MessageEvent接口
 export interface ServerSentEvent<T = any> {
@@ -48,6 +50,8 @@ export interface ServerSentEvent<T = any> {
 @Controller("api/chat/sessions")
 @UseGuards(JwtAuthGuard)
 export class ChatSessionController {
+  private readonly logger = new Logger(ChatSessionController.name);
+
   constructor(
     private readonly chatSessionService: ChatSessionService,
     private readonly prismaService: PrismaService,
@@ -380,11 +384,19 @@ export class ChatSessionController {
         content: { type: "string", description: "消息内容" },
         model: {
           type: "string",
-          description: `模型名称，${ModelName.GLM4}更小更快(默认选项)，${ModelName.GLM4_5}更强更慢`,
+          description: `模型名称，${ModelName.GLM4}更小更快，${ModelName.GLM4_5}更强更慢`,
+          default: ModelName.GLM4,
         },
         path: {
           type: "string",
           description: "指定根据某些文档回答问题，抖音官网文档的path",
+        },
+        threshold: {
+          type: "number",
+          description: "相似度阈值",
+          default: QdrantService.defaultThreshold,
+          maximum: 1,
+          minimum: 0,
         },
       },
       required: ["content"],
@@ -426,6 +438,12 @@ export class ChatSessionController {
 
     if (!session) {
       throw new NotFoundException("Chat session not found");
+    }
+
+    if (isFinite(data.threshold as number)) {
+      data.threshold = Math.max(Math.min(Number(data.threshold), 1), 0);
+    } else {
+      data.threshold = QdrantService.defaultThreshold;
     }
 
     /**
@@ -473,7 +491,9 @@ export class ChatSessionController {
       });
 
       subject.complete();
-    })();
+    })().catch((error) => {
+      this.logger.error(error);
+    });
 
     return subject.asObservable();
   }

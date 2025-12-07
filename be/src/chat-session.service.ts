@@ -1,4 +1,10 @@
-import { Injectable, HttpException, HttpStatus, Logger } from "@nestjs/common";
+import {
+  Injectable,
+  HttpException,
+  HttpStatus,
+  Logger,
+  NotFoundException,
+} from "@nestjs/common";
 import { PrismaService } from "./prisma.service";
 import { QdrantService } from "./qdrant.service";
 import { ConfigService } from "@nestjs/config";
@@ -25,6 +31,7 @@ import {
 } from "@langchain/core/messages";
 import { StringOutputParser } from "@langchain/core/output_parsers";
 import { ChatZhipuAI } from "@langchain/community/chat_models/zhipuai";
+import { AnalyticsService } from "./analytics.service";
 
 @Injectable()
 export class ChatSessionService {
@@ -35,6 +42,7 @@ export class ChatSessionService {
     private readonly prismaService: PrismaService,
     private readonly qdrantService: QdrantService,
     private readonly configService: ConfigService,
+    private readonly analyticsService: AnalyticsService,
   ) {
     const promptTask = this.configService.get<string>("PROMPT_TASK");
     if (!promptTask) {
@@ -316,25 +324,18 @@ export class ChatSessionService {
       });
 
     // 创建用户消息
-    await this.prismaService.client.chatMessage.create({
-      data: {
-        sessionId,
-        role: MessageRole.User,
-        content: data.content,
-        userMessageType: data.type,
-        audioFilePath: data.audioFilePath,
-        imageFilePath: data.imageFilePath,
+    const createdUserMessageTask = this.prismaService.client.chatMessage.create(
+      {
+        data: {
+          sessionId,
+          role: MessageRole.User,
+          content: data.content,
+          userMessageType: data.type,
+          audioFilePath: data.audioFilePath,
+          imageFilePath: data.imageFilePath,
+        },
       },
-    });
-
-    // 更新会话的最后消息时间和消息数量
-    await this.prismaService.client.chatSession.update({
-      where: { id: sessionId },
-      data: {
-        lastMessageAt: new Date(),
-        messageCount: { increment: 1 },
-      },
-    });
+    );
 
     // 创建LLM模型实例
     const model = this.createChatModel(data.model || ModelName.GLM4);
@@ -359,11 +360,17 @@ export class ChatSessionService {
       data.content,
       {
         path: data.path,
+        threshold: data.threshold,
       },
     );
+
     if (retrievedChunks.length > 0) {
+      // 检索到相关上下文，添加上下文信息
       const context = QdrantService.buildContext(retrievedChunks);
       messages.push(new SystemMessage(`上下文信息：${context}`));
+    } else {
+      // 如果没有检索到相关上下文，将问题标记为零命中问题
+      await this.analyticsService.updateUnansweredQuestions(data.content);
     }
 
     // 添加历史对话
@@ -405,14 +412,37 @@ export class ChatSessionService {
 
     this.logger.verbose(`Answered ${data.content}`);
     const joinedResponse = accumulatedResponse.join("");
+
     // 保存助手回复到数据库
-    await this.prismaService.client.chatMessage.create({
+    const createdAssistantMessageTask =
+      this.prismaService.client.chatMessage.create({
+        data: {
+          sessionId,
+          role: MessageRole.Assistant,
+          content: joinedResponse,
+        },
+      });
+
+    // 更新会话的最后消息时间和消息数量
+    const updateSessionTask = this.prismaService.client.chatSession.update({
+      where: { id: sessionId },
       data: {
-        sessionId,
-        role: MessageRole.Assistant,
-        content: joinedResponse,
+        lastMessageAt: new Date(),
+        messageCount: { increment: 1 },
       },
     });
+
+    // 对用户问题进行分类
+    const updateFrequentQuestionsTask =
+      this.analyticsService.updateFrequentQuestions(data.content);
+
+    await Promise.all([
+      createdUserMessageTask,
+      createdAssistantMessageTask,
+      updateSessionTask,
+      updateFrequentQuestionsTask,
+    ]);
+
     this.logger.verbose(
       `Saved ${joinedResponse.substring(0, 30)}... for ${data.content}`,
     );
@@ -437,7 +467,7 @@ export class ChatSessionService {
     });
 
     if (!message) {
-      throw new HttpException("Message not found", HttpStatus.NOT_FOUND);
+      throw new NotFoundException("Message not found");
     }
 
     // 创建反馈记录

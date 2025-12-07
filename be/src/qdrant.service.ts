@@ -18,6 +18,7 @@ export interface RetrievedChunk extends DocumentChunk {
 export class QdrantService implements OnModuleInit {
   private client: QdrantClient;
   public readonly defaultCollection: string;
+  public static readonly defaultThreshold: number = 0.5;
   private readonly resetOnStartup: boolean;
   private readonly logger = new Logger(QdrantService.name);
 
@@ -144,11 +145,13 @@ export class QdrantService implements OnModuleInit {
     options: {
       limit?: number;
       path?: string;
+      threshold?: number;
     } = {},
   ): Promise<RetrievedChunk[]> {
     const queryVec = await this.embeddingService.embedQuery(query);
 
     const limit = options.limit || 5;
+    const threshold = options.threshold ?? QdrantService.defaultThreshold;
     const pathFilter = options.path
       ? {
           key: "path",
@@ -161,11 +164,13 @@ export class QdrantService implements OnModuleInit {
       this.client.search(this.defaultCollection, {
         vector: queryVec,
         limit,
+        score_threshold: threshold,
         filter: { must: [pathFilter] },
       }),
       this.client.search(collection, {
         vector: queryVec,
         limit,
+        score_threshold: threshold,
       }),
     ]);
     userResp.push(...systemResp);

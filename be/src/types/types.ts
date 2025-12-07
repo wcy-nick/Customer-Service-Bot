@@ -258,10 +258,9 @@ export interface FrequentQuestionDto {
 export interface UnansweredQuestionDto {
   id: string;
   question: string;
-  user_id: string;
-  user_name?: string;
-  session_id: string;
+  ask_count: number;
   created_at: Date;
+  updated_at: Date;
   is_resolved: boolean;
   resolved_at?: Date;
   resolved_by?: string;

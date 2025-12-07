@@ -84,6 +84,7 @@ export interface SendMessageDto {
   audioFilePath?: string;
   imageFilePath?: string;
   path?: string;
+  threshold?: number;
 }
 
 // 消息反馈请求DTO
