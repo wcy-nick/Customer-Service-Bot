@@ -405,9 +405,22 @@ export class ChatSessionService {
       this.logger.error("Error streaming response:", error);
 
       const errorMessage = "ErrorGenerating";
-      yield errorMessage;
-
       accumulatedResponse.push(errorMessage);
+      yield errorMessage;
+    }
+
+    if (
+      !accumulatedResponse.at(-1)?.startsWith("Error") &&
+      retrievedChunks.length > 0
+    ) {
+      const uniqueUrls = [...new Set(retrievedChunks.map(({ url }) => url))];
+      const urlList = uniqueUrls.map((url, i) => `${i + 1}. [${url}](${url})`);
+      const msg = `
+
+# 参考资料
+${urlList.join("\n")}`;
+      accumulatedResponse.push(msg);
+      yield msg;
     }
 
     this.logger.verbose(`Answered ${data.content}`);
