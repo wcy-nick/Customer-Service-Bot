@@ -3,7 +3,7 @@ import { AuthController } from "./auth.controller";
 import { AuthService } from "./auth.service";
 import { UnauthorizedException } from "@nestjs/common";
 import type { RefreshTokenRequest, RegisterUserInput } from "../types/types";
-import { User } from "../types/types";
+import { User, UserRole } from "../types/types";
 
 describe("AuthController", () => {
   let authController: AuthController;
@@ -53,7 +53,7 @@ describe("AuthController", () => {
         username: "testuser",
         email: "test@example.com",
         displayName: "Test User",
-        role: "user",
+        role: UserRole.user,
         passwordHash: "$2b$10$mockpasswordhash",
         isActive: true,
         createdAt: new Date(),

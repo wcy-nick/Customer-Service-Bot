@@ -52,6 +52,11 @@ export interface UpdateScenarioInput {
   is_active?: boolean;
 }
 
+export enum UserRole {
+  admin = "admin",
+  user = "user",
+}
+
 // 用户相关接口
 export interface User {
   id: string;
@@ -60,7 +65,7 @@ export interface User {
   passwordHash: string;
   displayName: string | null;
   avatarUrl: string | null;
-  role: string;
+  role: UserRole;
   isActive: boolean;
   createdAt: Date;
   updatedAt: Date;
@@ -85,14 +90,14 @@ export interface UpdateProfileInput {
 }
 
 export interface UpdateRoleInput {
-  role: "admin" | "editor" | "user";
+  role: UserRole;
 }
 
 export interface GetUsersQuery {
   page?: number;
   limit?: number;
   search?: string;
-  role?: string;
+  role?: UserRole;
 }
 
 export interface PaginatedResponse<T> {

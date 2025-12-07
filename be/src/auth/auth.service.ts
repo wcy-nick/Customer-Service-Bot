@@ -13,6 +13,7 @@ import {
   UserDto,
   TokenPayload,
   User,
+  UserRole,
 } from "../types/types";
 
 @Injectable()
@@ -53,7 +54,7 @@ export class AuthService {
 
     if (await this.comparePasswords(password, user.passwordHash)) {
       this.logger.log(`用户 ${username} 验证成功`);
-      return user;
+      return { ...user, role: user.role as UserRole };
     }
 
     this.logger.warn(`用户 ${username} 密码错误`);
