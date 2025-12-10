@@ -174,6 +174,15 @@ export class DocumentService {
       },
     });
 
+    this.vectorizeDocument(input.createdBy!, {
+      id: document.id,
+      content: input.content,
+      url: input.source_url || "",
+      path: [],
+    }).catch((error) => {
+      this.logger.error(`Error vectorizing document ${document.id}: ${error}`);
+    });
+
     return this.mapToDto(document);
   }
 
@@ -234,13 +243,35 @@ export class DocumentService {
       return;
     }
 
-    // 先删除所有版本记录
-    await this.prismaService.client.documentVersion.deleteMany({
+    // 先删除所有相关版本记录和块记录
+    const deleteVersion = this.prismaService.client.documentVersion.deleteMany({
       where: { documentId: id },
     });
+    const deleteChunks = this.deleteChunks(id, existingDocument.createdBy);
+    await Promise.all([deleteVersion, deleteChunks]);
 
     // 删除文档
     await this.prismaService.client.knowledgeDocument.delete({ where: { id } });
+  }
+
+  async deleteChunks(
+    documentId: string,
+    userId: string | null = null,
+  ): Promise<void> {
+    const chunks = await this.prismaService.client.documentChunk.findMany({
+      where: { documentId },
+      select: { id: true },
+    });
+    const deleteQdrant = userId
+      ? this.qdrantService.deleteDocuments(
+          userId,
+          chunks.map((chunk) => chunk.id),
+        )
+      : Promise.resolve();
+    const deleteChunks = this.prismaService.client.documentChunk.deleteMany({
+      where: { documentId },
+    });
+    await Promise.all([deleteQdrant, deleteChunks]);
   }
 
   async publishDocument(id: string): Promise<KnowledgeDocumentDto> {

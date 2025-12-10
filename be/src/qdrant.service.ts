@@ -148,6 +148,7 @@ export class QdrantService implements OnModuleInit {
       threshold?: number;
     } = {},
   ): Promise<RetrievedChunk[]> {
+    this.logger.verbose(`Embedding query ${query}`);
     const queryVec = await this.embeddingService.embedQuery(query);
 
     const limit = options.limit || 5;
@@ -160,6 +161,9 @@ export class QdrantService implements OnModuleInit {
           },
         }
       : {};
+    this.logger.verbose(
+      `Searching collection ${collection} with path filter ${JSON.stringify(pathFilter)}`,
+    );
     const [systemResp, userResp] = await Promise.all([
       this.client.search(this.defaultCollection, {
         vector: queryVec,
@@ -201,6 +205,12 @@ export class QdrantService implements OnModuleInit {
       `Retrieved ${overview} for query ${query} (size: ${queryVec.length})`,
     );
     return results;
+  }
+
+  async deleteDocuments(collection: string, ids: string[]) {
+    await this.client.delete(collection, {
+      points: ids,
+    });
   }
 
   static buildContext(
