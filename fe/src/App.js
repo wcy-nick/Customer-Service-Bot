@@ -618,7 +618,7 @@ const ChatBotView = () => {
       .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
       .replace(/\*([^*]+)\*/g, '<em>$1</em>')
       .replace(/`([^`]+)`/g, '<code>$1</code>')
-      .replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g, '<a href="$2" target="_blank" rel="noreferrer">$1</a>');
+      .replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g, '<a href="$2" target="_blank" rel="noreferrer" class="text-blue-600 hover:text-blue-800 underline">$1</a>');
     const parts = String(text || '').split(/```/);
     let out = '';
     for (let i = 0; i < parts.length; i++) {

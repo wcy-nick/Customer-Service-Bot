@@ -276,24 +276,40 @@ export class ChatSessionService {
       where: { sessionId },
     });
 
-    // 查询消息列表，按时间升序排列
+    // 查询消息列表，按时间升序排列，当时间相同时，user消息排在assistant消息之前
     const messages = await this.prismaService.client.chatMessage.findMany({
       where: { sessionId },
-      orderBy: { createdAt: "asc" },
+      orderBy: [
+        { createdAt: "asc" },
+        { role: "desc" }, // user在assistant之前
+      ],
       skip,
       take: limit,
     });
 
     // 转换为DTO
-    const items: ChatMessageDto[] = messages.map((message) => ({
-      id: message.id,
-      role: message.role as MessageRole,
-      content: message.content,
-      message_type: message.userMessageType as MessageType,
-      audio_file_path: message.audioFilePath ?? undefined,
-      image_file_path: message.imageFilePath ?? undefined,
-      createdAt: message.createdAt.toISOString(),
-    }));
+    const items: ChatMessageDto[] = messages.map((message) => {
+      const uniqueUrls = message.referencedChunks || [];
+      const urlList = uniqueUrls.map((url, i) => `${i + 1}. [${url}](${url})`);
+      const referenceParagraph = `
+
+# 参考资料
+${urlList.join("\n")}`;
+
+      // don't push msg to accumulatedResponse
+      return {
+        id: message.id,
+        role: message.role as MessageRole,
+        content:
+          uniqueUrls.length > 0
+            ? message.content + referenceParagraph
+            : message.content,
+        message_type: message.userMessageType as MessageType,
+        audio_file_path: message.audioFilePath ?? undefined,
+        image_file_path: message.imageFilePath ?? undefined,
+        createdAt: message.createdAt.toISOString(),
+      };
+    });
 
     return {
       items,
@@ -320,7 +336,10 @@ export class ChatSessionService {
           content: true,
         },
         where: { sessionId },
-        orderBy: { createdAt: "asc" },
+        orderBy: [
+          { createdAt: "asc" },
+          { role: "desc" }, // user在assistant之前
+        ],
       });
 
     // 创建用户消息
@@ -409,11 +428,16 @@ export class ChatSessionService {
       yield errorMessage;
     }
 
+    const uniqueUrls: string[] = [];
     if (
       !accumulatedResponse.at(-1)?.startsWith("Error") &&
       retrievedChunks.length > 0
     ) {
-      const uniqueUrls = [...new Set(retrievedChunks.map(({ url }) => url))];
+      uniqueUrls.splice(
+        0,
+        uniqueUrls.length,
+        ...new Set(retrievedChunks.map(({ url }) => url)),
+      );
       const urlList = uniqueUrls.map((url, i) => `${i + 1}. [${url}](${url})`);
       const msg = `
 
@@ -434,6 +458,7 @@ ${urlList.join("\n")}`;
           sessionId,
           role: MessageRole.Assistant,
           content: joinedResponse,
+          referencedChunks: uniqueUrls,
         },
       });
 
