@@ -419,7 +419,8 @@ export class ChatSessionService {
 
 # 参考资料
 ${urlList.join("\n")}`;
-      accumulatedResponse.push(msg);
+
+      // don't push msg to accumulatedResponse
       yield msg;
     }
 
