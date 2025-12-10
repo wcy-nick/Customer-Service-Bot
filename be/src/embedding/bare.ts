@@ -21,6 +21,7 @@ export abstract class BareEmbeddingService {
             Authorization: `Bearer ${this.apiKey}`,
             "Content-Type": "application/json",
           },
+          timeout: 10000,
         },
       );
 

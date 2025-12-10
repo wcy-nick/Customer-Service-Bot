@@ -1,19 +1,19 @@
 import { Module } from "@nestjs/common";
 import { ZhipuEmbeddingService } from "./zhipu";
-import { SilconflowEmbeddingService } from "./siliconflow";
+import { SiliconflowEmbeddingService } from "./siliconflow";
 import { GiteeEmbeddingService } from "./gitee";
 import { BaishanEmbeddingService } from "./baishan";
 
 @Module({
   providers: [
     ZhipuEmbeddingService,
-    SilconflowEmbeddingService,
+    SiliconflowEmbeddingService,
     GiteeEmbeddingService,
     BaishanEmbeddingService,
   ],
   exports: [
     ZhipuEmbeddingService,
-    SilconflowEmbeddingService,
+    SiliconflowEmbeddingService,
     GiteeEmbeddingService,
     BaishanEmbeddingService,
   ],

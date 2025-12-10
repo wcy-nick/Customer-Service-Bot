@@ -3,7 +3,7 @@ import { ConfigService } from "@nestjs/config";
 import { BareEmbeddingService } from "./bare";
 
 @Injectable()
-export class SilconflowEmbeddingService extends BareEmbeddingService {
+export class SiliconflowEmbeddingService extends BareEmbeddingService {
   protected readonly apiUrl = "https://api.siliconflow.cn/v1/embeddings";
   protected readonly apiKey: string;
   protected readonly model: string;
@@ -22,7 +22,7 @@ export class SilconflowEmbeddingService extends BareEmbeddingService {
     }
 
     this.apiKey = apiKey;
-    this.model = model || "BAAI/bge-large-zh-v1.5";
+    this.model = model || "BAAI/bge-m3";
     this.dimensions = dimensions;
   }
 }

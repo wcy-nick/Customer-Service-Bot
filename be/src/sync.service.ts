@@ -228,24 +228,17 @@ export class SyncService {
             );
             path.push(menuItem.id);
 
-            this.logger.verbose(`Saving article ${menuItem.id}`);
-            const { id: documentId } =
-              await this.documentService.createDocument({
+            this.logger.verbose(`Creating article ${menuItem.id}`);
+            const success =
+              await this.documentService.createDocumentAndVectorize({
                 content: markdown,
                 title: article.name,
                 file_path: path.join("/"),
                 source_type: "douyin",
                 source_url: url,
                 updatedAt: new Date(article.update_timestamp * 1000),
+                path,
               });
-
-            this.logger.verbose(`Vectorizing article ${menuItem.id}`);
-            const success = await this.documentService.vectorizeDocument("", {
-              id: documentId,
-              content: markdown,
-              url,
-              path,
-            });
             this.logger.verbose(`Finish article ${menuItem.id}`);
             return success;
           }),

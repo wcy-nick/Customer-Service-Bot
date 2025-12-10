@@ -154,6 +154,7 @@ export class DocumentService {
 
   async createDocument(
     input: CreateDocumentInput & {
+      path?: string[];
       createdBy?: string;
       updatedBy?: string;
       updatedAt?: Date;
@@ -174,16 +175,49 @@ export class DocumentService {
       },
     });
 
-    this.vectorizeDocument(input.createdBy!, {
+    this.vectorizeDocument(input.createdBy || "", {
       id: document.id,
+      title: input.title,
       content: input.content,
       url: input.source_url || "",
-      path: [],
+      path: input.path ?? [],
     }).catch((error) => {
       this.logger.error(`Error vectorizing document ${document.id}: ${error}`);
     });
 
     return this.mapToDto(document);
+  }
+
+  async createDocumentAndVectorize(
+    input: CreateDocumentInput & {
+      path?: string[];
+      createdBy?: string;
+      updatedBy?: string;
+      updatedAt?: Date;
+    },
+  ): Promise<boolean> {
+    const document = await this.prismaService.client.knowledgeDocument.create({
+      data: {
+        title: input.title,
+        content: input.content,
+        summary: input.summary,
+        filePath: input.file_path,
+        sourceType: input.source_type,
+        sourceUrl: input.source_url,
+        tags: input.tags,
+        createdBy: input.createdBy,
+        updatedBy: input.updatedBy,
+        updatedAt: input.updatedAt,
+      },
+    });
+
+    return this.vectorizeDocument(input.createdBy || "", {
+      id: document.id,
+      title: input.title,
+      content: input.content,
+      url: input.source_url || "",
+      path: input.path ?? [],
+    });
   }
 
   async createMany(
@@ -343,6 +377,7 @@ export class DocumentService {
     }
     return this.vectorizeDocument(document.createdBy || "", {
       id,
+      title: document.title || "",
       content: document.content,
       url: document.sourceUrl || "",
       path: [],
@@ -353,6 +388,7 @@ export class DocumentService {
     collection: string,
     document: {
       id: string;
+      title: string;
       content: string;
       path: string[];
       url: string;
@@ -375,7 +411,8 @@ export class DocumentService {
     const documents = ids.map(({ id }, i) => ({
       id,
       text: chunks[i],
-      url: document.url || "",
+      title: document.title,
+      url: document.url,
       path: [...document.path, i.toString()],
     }));
 

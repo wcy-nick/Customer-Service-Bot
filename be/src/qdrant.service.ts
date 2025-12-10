@@ -1,4 +1,9 @@
-import { Injectable, Logger, OnModuleInit } from "@nestjs/common";
+import {
+  Injectable,
+  Logger,
+  OnModuleInit,
+  ServiceUnavailableException,
+} from "@nestjs/common";
 import { QdrantClient } from "@qdrant/js-client-rest";
 import { ConfigService } from "@nestjs/config";
 import { BaishanEmbeddingService as EmbeddingService } from "./embedding/baishan";
@@ -6,12 +11,20 @@ import { BaishanEmbeddingService as EmbeddingService } from "./embedding/baishan
 export interface DocumentChunk {
   id: string;
   text: string;
+  title: string;
   url: string;
   path: string[];
 }
 
 export interface RetrievedChunk extends DocumentChunk {
   score: number;
+}
+
+interface SearchPayload {
+  text: string;
+  title: string;
+  url: string;
+  path: string[];
 }
 
 @Injectable()
@@ -98,15 +111,25 @@ export class QdrantService implements OnModuleInit {
     this.logger.verbose(`Embedding ${texts.length} documents`);
 
     const vectors: number[][] = [];
-    try {
-      vectors.push(...(await this.embeddingService.embedDocuments(texts)));
-    } catch (error) {
-      this.logger.error(`Embedding documents: ${error}`);
-      if (error instanceof AggregateError) {
-        for (const err of error.errors) {
-          this.logger.error(err);
+    for (let i = 0; i < 3; i++) {
+      try {
+        const embeddings = await this.embeddingService.embedDocuments(texts);
+        vectors.push(...embeddings);
+        break;
+      } catch (error) {
+        this.logger.error(`Attempt ${i + 1} failed embedding: ${error}`);
+        if (error instanceof AggregateError) {
+          for (const err of error.errors) {
+            this.logger.error(err);
+          }
         }
+
+        // 等待重试
+        await new Promise((resolve) => setTimeout(resolve, 5000));
       }
+    }
+
+    if (vectors.length === 0) {
       return false;
     }
 
@@ -118,6 +141,7 @@ export class QdrantService implements OnModuleInit {
         text: doc.text,
         url: doc.url,
         path: doc.path,
+        title: doc.title,
       },
     }));
 
@@ -149,7 +173,20 @@ export class QdrantService implements OnModuleInit {
     } = {},
   ): Promise<RetrievedChunk[]> {
     this.logger.verbose(`Embedding query ${query}`);
-    const queryVec = await this.embeddingService.embedQuery(query);
+    const queryVec: number[] = [];
+    try {
+      const embeddings = await this.embeddingService.embedQuery(query);
+      queryVec.push(...embeddings);
+    } catch (error) {
+      if (error instanceof AggregateError) {
+        for (const err of error.errors) {
+          this.logger.error(err);
+        }
+      } else {
+        this.logger.error(error);
+      }
+      throw new ServiceUnavailableException("Embedding service error");
+    }
 
     const limit = options.limit || 5;
     const threshold = options.threshold ?? QdrantService.defaultThreshold;
@@ -164,36 +201,38 @@ export class QdrantService implements OnModuleInit {
     this.logger.verbose(
       `Searching collection ${collection} with path filter ${JSON.stringify(pathFilter)}`,
     );
-    const [systemResp, userResp] = await Promise.all([
-      this.client.search(this.defaultCollection, {
-        vector: queryVec,
-        limit,
-        score_threshold: threshold,
-        filter: { must: [pathFilter] },
-      }),
-      this.client.search(collection, {
-        vector: queryVec,
-        limit,
-        score_threshold: threshold,
-      }),
-    ]);
-    userResp.push(...systemResp);
+    const results: RetrievedChunk[] = [];
+    try {
+      const [systemResp, userResp] = await Promise.all([
+        this.client.search(this.defaultCollection, {
+          vector: queryVec,
+          limit,
+          score_threshold: threshold,
+          filter: { must: [pathFilter] },
+        }),
+        this.client.search(collection, {
+          vector: queryVec,
+          limit,
+          score_threshold: threshold,
+        }),
+      ]);
+      userResp.push(...systemResp);
+      results.push(
+        ...userResp.map((result) => {
+          const payload = result.payload! as unknown as SearchPayload;
+          return {
+            id: String(result.id),
+            score: result.score,
+            ...payload,
+          };
+        }),
+      );
+    } catch (error) {
+      this.logger.error(`Searching collection ${collection}: ${error}`);
+      throw new ServiceUnavailableException("Retrieve service error");
+    }
 
-    // 转换结果
-    const results = userResp.map((result) => {
-      const payload = result.payload! as {
-        text: string;
-        url: string;
-        path: string[];
-      };
-      return {
-        id: String(result.id),
-        score: result.score,
-        text: payload.text,
-        path: payload.path,
-        url: payload.url,
-      };
-    });
+    results.splice(0, results.length, ...this.dedupChunks(results));
 
     const overview = results
       .map(
@@ -213,23 +252,15 @@ export class QdrantService implements OnModuleInit {
     });
   }
 
-  static buildContext(
-    retrievedChunks: RetrievedChunk[],
-    minScore = 0.5,
-    maxLength = 2000,
-  ): string {
-    // 1. 过滤掉相似度分数过低的结果
-    const filteredDocs = retrievedChunks.filter((doc) => doc.score >= minScore);
-
-    // 2. 内容去重
+  dedupChunks(retrievedChunks: RetrievedChunk[]) {
     const uniqueDocsMap = new Map<string, RetrievedChunk>();
-    filteredDocs.forEach((doc) => {
-      if (!uniqueDocsMap.has(doc.text)) {
-        uniqueDocsMap.set(doc.text, doc);
-      }
-    });
-    const uniqueDocs = Array.from(uniqueDocsMap.values());
+    for (const doc of retrievedChunks) {
+      uniqueDocsMap.set(doc.text, doc);
+    }
+    return Array.from(uniqueDocsMap.values());
+  }
 
+  static buildContext(uniqueDocs: RetrievedChunk[], maxLength = 2000): string {
     // 3. 构建带有元数据的上下文
     const context: string[] = [];
     let totalLength = 0;

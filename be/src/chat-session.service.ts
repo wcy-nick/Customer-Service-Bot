@@ -289,19 +289,18 @@ export class ChatSessionService {
 
     // 转换为DTO
     const items: ChatMessageDto[] = messages.map((message) => {
-      const uniqueUrls = message.referencedChunks || [];
-      const urlList = uniqueUrls.map((url, i) => `${i + 1}. [${url}](${url})`);
+      const urlList = message.referencedChunks || [];
       const referenceParagraph = `
 
-# 参考资料
-${urlList.join("\n")}`;
+# 相关资料
+${urlList.map((url, i) => `${i + 1}. ${url}`).join("\n")}`;
 
       // don't push msg to accumulatedResponse
       return {
         id: message.id,
         role: message.role as MessageRole,
         content:
-          uniqueUrls.length > 0
+          urlList.length > 0
             ? message.content + referenceParagraph
             : message.content,
         message_type: message.userMessageType as MessageType,
@@ -389,7 +388,11 @@ ${urlList.join("\n")}`;
       messages.push(new SystemMessage(`上下文信息：${context}`));
     } else {
       // 如果没有检索到相关上下文，将问题标记为零命中问题
-      await this.analyticsService.updateUnansweredQuestions(data.content);
+      this.analyticsService
+        .updateUnansweredQuestions(data.content)
+        .catch((err) => {
+          this.logger.error("Error updating unanswered questions:", err);
+        });
     }
 
     // 添加历史对话
@@ -428,21 +431,20 @@ ${urlList.join("\n")}`;
       yield errorMessage;
     }
 
-    const uniqueUrls: string[] = [];
+    const urlList: string[] = [];
     if (
       !accumulatedResponse.at(-1)?.startsWith("Error") &&
       retrievedChunks.length > 0
     ) {
-      uniqueUrls.splice(
-        0,
-        uniqueUrls.length,
-        ...new Set(retrievedChunks.map(({ url }) => url)),
-      );
-      const urlList = uniqueUrls.map((url, i) => `${i + 1}. [${url}](${url})`);
+      const segments = retrievedChunks.map(({ url, title }) => {
+        const segment = url ? `[${title}](${url})` : title;
+        return segment;
+      });
+      urlList.push(...new Set(segments));
       const msg = `
 
-# 参考资料
-${urlList.join("\n")}`;
+# 相关资料
+${urlList.map((url, i) => `${i + 1}. ${url}`).join("\n")}`;
 
       // don't push msg to accumulatedResponse
       yield msg;
@@ -458,7 +460,7 @@ ${urlList.join("\n")}`;
           sessionId,
           role: MessageRole.Assistant,
           content: joinedResponse,
-          referencedChunks: uniqueUrls,
+          referencedChunks: urlList,
         },
       });
 
